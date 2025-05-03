@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="150dp"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="16dp"
+    app:shimmer_auto_start="true"
+    app:shimmer_base_color="@color/colorSurface"
+    app:shimmer_highlighted_color="@color/colorPrimaryLight"
+    app:shimmer_direction="left_to_right"
+    app:shimmer_duration="800">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp">
+            
+            <View
+                android:id="@+id/shimmer_album_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/shimmer_background" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <View
+            android:id="@+id/shimmer_album_title"
+            android:layout_width="130dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/shimmer_background" />
+
+        <View
+            android:id="@+id/shimmer_album_artist"
+            android:layout_width="100dp"
+            android:layout_height="12dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/shimmer_background" />
+
+    </LinearLayout>
+</com.facebook.shimmer.ShimmerFrameLayout> 

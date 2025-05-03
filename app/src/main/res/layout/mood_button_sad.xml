@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:id="@+id/layoutMoodSad"
+    android:clickable="true"
+    android:focusable="true"
+    android:contentDescription="Sad mood button"
+    android:background="?attr/selectableItemBackgroundBorderless">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardMoodSad"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="6dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="@color/mood_sad_dark"
+        app:cardBackgroundColor="@android:color/transparent"
+        android:foreground="@drawable/ripple_sad"
+        android:stateListAnimator="@animator/mood_button_animator"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_mood_sad"
+            android:contentDescription="Sad mood" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sad"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginTop="8dp" />
+</LinearLayout> 

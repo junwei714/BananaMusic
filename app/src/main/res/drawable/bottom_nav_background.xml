@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/colorSurface" />
+    
+    <!-- Add slight border at the top -->
+    <stroke
+        android:width="0.5dp"
+        android:color="#44000000" />
+    
+    <!-- Rounded top corners -->
+    <corners android:radius="16dp" />
+    
+    <!-- Add subtle gradient -->
+    <gradient
+        android:startColor="#2C2C2C"
+        android:endColor="#222222"
+        android:angle="270" />
+</shape> 

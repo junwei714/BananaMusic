@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_home">
+
+    <fragment
+        android:id="@+id/navigation_home"
+        android:name="my.edu.utar.bananamusic.ui.home.HomeFragment"
+        android:label="Home">
+        
+        <action
+            android:id="@+id/action_navigation_home_to_recommendationsFragment"
+            app:destination="@id/recommendationsFragment" />
+            
+        <action
+            android:id="@+id/action_navigation_home_to_allPlaylistsFragment"
+            app:destination="@id/allPlaylistsFragment" />
+            
+        <action
+            android:id="@+id/action_navigation_home_to_newReleasesFragment"
+            app:destination="@id/newReleasesFragment" />
+            
+        <action
+            android:id="@+id/action_navigation_home_to_collaborativePlaylistsFragment"
+            app:destination="@id/collaborativePlaylistsFragment" />
+
+        <action
+            android:id="@+id/action_navigation_home_to_trackDetailFragment"
+            app:destination="@id/trackDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/recommendationsFragment"
+        android:name="my.edu.utar.bananamusic.ui.recommendations.RecommendationsFragment"
+        android:label="Recommendations" />
+
+    <fragment
+        android:id="@+id/allPlaylistsFragment"
+        android:name="my.edu.utar.bananamusic.ui.playlists.AllPlaylistsFragment"
+        android:label="All Playlists" />
+
+    <fragment
+        android:id="@+id/newReleasesFragment"
+        android:name="my.edu.utar.bananamusic.ui.releases.NewReleasesFragment"
+        android:label="New Releases" />
+
+    <fragment
+        android:id="@+id/collaborativePlaylistsFragment"
+        android:name="my.edu.utar.bananamusic.ui.playlists.CollaborativePlaylistsFragment"
+        android:label="Collaborative Playlists" />
+
+    <fragment
+        android:id="@+id/navigation_search"
+        android:name="my.edu.utar.bananamusic.ui.search.SearchFragment"
+        android:label="@string/title_search"
+        tools:layout="@layout/fragment_search" />
+
+    <fragment
+        android:id="@+id/navigation_library"
+        android:name="my.edu.utar.bananamusic.ui.library.LibraryFragment"
+        android:label="@string/title_library"
+        tools:layout="@layout/fragment_library" />
+
+    <fragment
+        android:id="@+id/playlistDetailFragment"
+        android:name="my.edu.utar.bananamusic.ui.playlist.PlaylistDetailFragment"
+        android:label="Playlist"
+        tools:layout="@layout/fragment_playlist_detail">
+        <argument
+            android:name="playlistId"
+            app:argType="string" />
+        <argument
+            android:name="playlistName"
+            app:argType="string" />
+        <argument
+            android:name="playlistCoverUrl"
+            app:argType="string"
+            app:nullable="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/trackDetailFragment"
+        android:name="my.edu.utar.bananamusic.ui.track.TrackDetailFragment"
+        android:label="Track Details"
+        tools:layout="@layout/fragment_track_detail">
+        <argument
+            android:name="track"
+            app:argType="my.edu.utar.bananamusic.models.Track" />
+    </fragment>
+
+</navigation> 

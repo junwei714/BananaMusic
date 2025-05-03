@@ -1,0 +1,201 @@
+    private void updatePlaybackState() {
+        updateInternalPlaybackState();
+    }
+
+    /**
+     * Play a track from YouTube using the YouTubeHelper
+     * 
+     * @param track The track to play
+     */
+    private void playYouTubeTrack(Track track) {
+        if (track == null) {
+            Log.e(TAG, "Cannot play null YouTube track");
+            if (listener != null) {
+                listener.onPlaybackError("Invalid YouTube track");
+                listener.onLoadingStateChanged(false);
+            }
+            return;
+        }
+        
+        // Show loading state
+        isLoading = true;
+        if (listener != null) {
+            listener.onLoadingStateChanged(true);
+            listener.onTrackLoading(track);
+        }
+        
+        // Check if we already have a YouTube URL for this track
+        if (track.getYoutubeUrl() != null && !track.getYoutubeUrl().isEmpty()) {
+            playWithYouTubeUrl(track.getYoutubeUrl());
+            return;
+        }
+        
+        // Otherwise search and find a YouTube video for this track
+        Log.d(TAG, "Searching for YouTube video for track: " + track.getTitle());
+        youtubeHelper.getStreamUrlForTrack(track, new YouTubeHelper.StreamUrlCallback() {
+            @Override
+            public void onSuccess(String streamUrl) {
+                isLoading = false;
+                if (listener != null) {
+                    listener.onLoadingStateChanged(false);
+                }
+                
+                Log.d(TAG, "Found YouTube stream URL for track: " + track.getTitle());
+                playStreamUrl(streamUrl);
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                isLoading = false;
+                if (listener != null) {
+                    listener.onLoadingStateChanged(false);
+                    listener.onPlaybackError("Failed to get YouTube stream: " + errorMessage);
+                }
+                
+                Log.e(TAG, "Failed to get YouTube stream: " + errorMessage);
+                searchForPreviewUrl(); // Fall back to other methods
+            }
+        });
+    }
+    
+    /**
+     * Play from a YouTube URL
+     * 
+     * @param youtubeUrl The YouTube URL to play
+     */
+    private void playWithYouTubeUrl(String youtubeUrl) {
+        if (youtubeUrl == null || youtubeUrl.isEmpty()) {
+            Log.e(TAG, "Cannot play null or empty YouTube URL");
+            if (listener != null) {
+                listener.onPlaybackError("Invalid YouTube URL");
+                listener.onLoadingStateChanged(false);
+            }
+            return;
+        }
+        
+        isLoading = true;
+        if (listener != null) {
+            listener.onLoadingStateChanged(true);
+        }
+        
+        // Extract video ID from URL
+        String videoId = youtubeHelper.extractVideoId(youtubeUrl);
+        if (videoId == null) {
+            Log.e(TAG, "Failed to extract video ID from YouTube URL: " + youtubeUrl);
+            if (listener != null) {
+                listener.onPlaybackError("Invalid YouTube URL format");
+                listener.onLoadingStateChanged(false);
+            }
+            isLoading = false;
+            return;
+        }
+        
+        // Get playable stream URL
+        youtubeHelper.getStreamUrl(videoId, new YouTubeHelper.StreamUrlCallback() {
+            @Override
+            public void onSuccess(String streamUrl) {
+                isLoading = false;
+                if (listener != null) {
+                    listener.onLoadingStateChanged(false);
+                }
+                
+                Log.d(TAG, "Playing YouTube stream: " + streamUrl);
+                playStreamUrl(streamUrl);
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                isLoading = false;
+                if (listener != null) {
+                    listener.onLoadingStateChanged(false);
+                    listener.onPlaybackError("Failed to get YouTube stream: " + errorMessage);
+                }
+                
+                Log.e(TAG, "Failed to get YouTube stream: " + errorMessage);
+                tryFallbackUrl();
+            }
+        });
+    }
+
+    /**
+     * Validate if a URL is properly formatted
+     * @param url URL to validate
+     * @return true if URL is valid
+     */
+    private boolean validateUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        
+        // Check if URL has a valid scheme
+        return url.startsWith("http://") || url.startsWith("https://");
+    }
+    
+    /**
+     * Add a playback changed listener
+     * @param listener Listener to add
+     */
+    public void addPlaybackChangedListener(OnPlaybackChangedListener listener) {
+        if (listener != null && !listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    /**
+     * Remove a playback changed listener
+     * @param listener Listener to remove
+     */
+    public void removePlaybackChangedListener(OnPlaybackChangedListener listener) {
+        if (listener != null) {
+            listeners.remove(listener);
+        }
+    }
+    
+    /**
+     * Stop the current playback
+     */
+    public void stop() {
+        if (mediaPlayer != null) {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            // Notify listeners
+            for (OnPlaybackChangedListener listener : listeners) {
+                if (listener != null) {
+                    listener.onTrackStopped();
+                }
+            }
+        }
+    }
+
+    /**
+     * Implementation of MediaPlayer.OnPreparedListener
+     */
+    @Override
+    public void onPrepared(MediaPlayer mp) {
+        // Start playback when prepared
+        if (mp != null) {
+            mp.start();
+            if (listener != null && currentTrack != null) {
+                listener.onTrackPlay(currentTrack);
+                listener.onPlaybackStateChanged(true);
+            }
+        }
+    }
+
+    @Override
+    public boolean onError(MediaPlayer mp, int what, int extra) {
+        Log.e(TAG, "MediaPlayer error: what=" + what + ", extra=" + extra);
+        handleError("Media player error: " + what);
+        return true; // true indicates the error has been handled
+    }
+
+    /**
+     * Check if a URL is valid for playback
+     * @param url The URL to check
+     * @return True if the URL is valid, false otherwise
+     */
+    private boolean isValid(String url) {
+        return url != null && !url.isEmpty() && url.startsWith("http");
+    }
+}

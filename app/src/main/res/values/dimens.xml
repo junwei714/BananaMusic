@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    <dimen name="nav_header_vertical_spacing">8dp</dimen>
+    <dimen name="nav_header_height">176dp</dimen>
+    <dimen name="fab_margin">16dp</dimen>
+    <dimen name="item_spacing">8dp</dimen>
+    <dimen name="grid_spacing">8dp</dimen>
+    <dimen name="swipe_refresh_offset">64dp</dimen>
+    <dimen name="dialog_margin">16dp</dimen>
+    <dimen name="default_padding">16dp</dimen>
+    
+    <!-- Library screen dimensions -->
+    <dimen name="playlist_item_width">160dp</dimen>
+    <dimen name="playlist_item_height">220dp</dimen>
+    <dimen name="playlist_cover_size">160dp</dimen>
+    
+    <!-- Player dimensions -->
+    <dimen name="mini_player_height">60dp</dimen>
+    <dimen name="mini_player_elevation">8dp</dimen>
+    <dimen name="now_playing_cover_size">300dp</dimen>
+    <dimen name="play_button_size">64dp</dimen>
+    <dimen name="control_button_size">48dp</dimen>
+    
+    <!-- Icon button dimensions -->
+    <dimen name="icon_button_small">32dp</dimen>
+    <dimen name="icon_button_medium">36dp</dimen>
+    <dimen name="icon_button_large">40dp</dimen>
+    <dimen name="icon_padding_small">4dp</dimen>
+    <dimen name="icon_padding_medium">6dp</dimen>
+    <dimen name="icon_padding_large">10dp</dimen>
+    
+    <!-- Margins -->
+    <dimen name="margin_small">4dp</dimen>
+    <dimen name="margin_medium">8dp</dimen>
+    <dimen name="margin_large">16dp</dimen>
+    <dimen name="margin_normal">8dp</dimen>
+    
+    <!-- Other dimensions -->
+    <dimen name="text_margin">16dp</dimen>
+    
+    <!-- Bottom navigation height -->
+    <dimen name="bottom_nav_height">56dp</dimen>
+</resources> 

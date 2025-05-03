@@ -1,0 +1,42 @@
+To fix the duplicate method error in AudioPlayerHelper.java:
+
+1. Open AudioPlayerHelper.java in Android Studio
+
+2. Delete the entire duplicate isNetworkAvailable() method (including JavaDoc) at around line 4012-4035
+
+3. The isNetworkAvailable() method around line 1127 should be kept and updated to include the newer implementation:
+
+```java
+/**
+ * Check if any network is available
+ */
+private boolean isNetworkAvailable() {
+    try {
+        ConnectivityManager connectivityManager = 
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return false;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Network network = connectivityManager.getActiveNetwork();
+            if (network == null) return false;
+            
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            return capabilities != null && (
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            );
+        } else {
+            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        }
+    } catch (Exception e) {
+        Log.e(TAG, "Error checking network availability: " + e.getMessage());
+        return false;
+    }
+}
+```
+
+4. Make sure the method at line 4012 is completely removed, and only the configureForSpotifyStreaming method follows the updateTrackFromJson method around line 3964.
+
+5. Run the build again with: ./gradlew compileDebugJavaWithJavac 

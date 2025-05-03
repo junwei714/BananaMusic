@@ -1,0 +1,4275 @@
+package my.edu.utar.bananamusic.utils;
+
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.util.Log;
+import android.widget.SeekBar;
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.content.res.AssetFileDescriptor;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.List;
+import java.util.UUID;
+import java.util.Random;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.io.InputStream;
+import java.io.IOException;
+import java.util.HashSet;
+
+import my.edu.utar.bananamusic.models.Playlist;
+import my.edu.utar.bananamusic.models.Track;
+
+/**
+ * Helper class for managing audio playback using MediaPlayer
+ */
+public class AudioPlayerHelper implements MediaPlayer.OnCompletionListener, AudioManager.OnAudioFocusChangeListener {
+    private static final String TAG = "AudioPlayerHelper";
+    
+    @SuppressLint("StaticFieldLeak")
+    private static AudioPlayerHelper instance;
+    private MediaPlayer mediaPlayer;
+    
+    // Media playback state variables
+    private Track currentTrack;
+    private boolean isPreparing = false;
+    private OnPlaybackChangedListener listener;
+    private final Context context;
+    private boolean isBuffering = false;
+    
+    // Handler for updating seekbar
+    private final Handler handler;
+    private Runnable updateSeekBarTask;
+    private SeekBar seekBar;
+    
+    // Audio focus handling
+    private AudioManager audioManager;
+    private boolean audioFocusGranted = false;
+    private boolean wasPlayingBeforeFocusLoss = false;
+    private boolean pausedForFocusLoss = false;
+    private boolean resumeAfterAudioFocus = false;
+    
+    // API helpers
+    private SoundCloudHelper soundCloudHelper;
+    private SpotifyHelper spotifyHelper;
+    private PipedHelper pipedHelper;
+    private MusicCache musicCache;
+    private UserPreferences preferences;
+    
+    // Add to member variables
+    private boolean shuffleEnabled = false;
+    private int repeatMode = REPEAT_OFF;
+    private static final int CROSSFADE_DURATION = 500; // ms
+    private MediaPlayer nextMediaPlayer; // For crossfade/gapless playback
+    private Track nextTrack;
+    private float maxVolume = 1.0f;
+    private boolean isCrossfading = false;
+    private boolean isLoading = false;
+    
+    // Queue management
+    private PlayQueue playQueue;
+    private List<Track> history = new ArrayList<>();
+    
+    // Constants for repeat modes
+    public static final int REPEAT_OFF = 0;
+    public static final int REPEAT_ALL = 1;
+    public static final int REPEAT_ONE = 2;
+    
+    // For backward compatibility with code that might still use the old names
+    public static final int REPEAT_MODE_NONE = REPEAT_OFF;
+    public static final int REPEAT_MODE_ALL = REPEAT_ALL;
+    public static final int REPEAT_MODE_ONE = REPEAT_ONE;
+    
+    // Audio focus variables
+    private AudioFocusRequest audioFocusRequest;
+    private boolean playbackDelayed = false;
+    private boolean playbackNowAuthorized = false;
+    private final AudioManager.OnAudioFocusChangeListener afChangeListener = 
+            this::onAudioFocusChange;
+    
+    // Add the updateSeekBar boolean variable
+    private boolean updateSeekBar = false;
+    
+    // Wake lock handling
+    private PowerManager.WakeLock wakeLock;
+    
+    // Add currentTrackUrl as a class member
+    private String currentTrackUrl;
+    
+    
+    // URL tracking to prevent retry loops
+    private HashSet<String> failedUrls = new HashSet<>();
+    
+    // Listener interface for playback events
+    public interface OnPlaybackChangedListener {
+        void onTrackPlay(Track track);
+        void onTrackPause();
+        void onTrackStopped();
+        void onTrackChanged(Track track);
+        void onPlaybackError(String errorMessage);
+        void onBufferingStart();
+        void onBufferingEnd();
+        void onLoadingStateChanged(boolean isLoading);
+        void onBufferingUpdate(int percent);
+        void onPlaybackStateChanged(boolean isPlaying);
+    }
+    
+    private AudioPlayerHelper(Context context) {
+        this.context = context.getApplicationContext();
+        this.handler = new Handler();
+        this.soundCloudHelper = SoundCloudHelper.getInstance(context);
+        this.spotifyHelper = SpotifyHelper.getInstance(context);
+        this.pipedHelper = PipedHelper.getInstance(context);
+        this.musicCache = MusicCache.getInstance(context);
+        this.preferences = UserPreferences.getInstance(context);
+        
+        // Set up audio manager for focus control
+        audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        
+        // Initialize with media player
+        setupMediaPlayer();
+        
+        // Initialize play queue
+        this.playQueue = new PlayQueue();
+        this.playQueue.setListener(new PlayQueue.PlayQueueListener() {
+            @Override
+            public void onQueueChanged() {
+                // Queue changed, nothing to do here
+            }
+            
+            @Override
+            public void onCurrentTrackChanged(Track track) {
+                // Auto-play when current track changes via queue
+                if (track != null && track != currentTrack) {
+                    playTrack(track);
+                }
+            }
+        });
+    }
+    
+    public static synchronized AudioPlayerHelper getInstance(Context context) {
+        if (instance == null) {
+            instance = new AudioPlayerHelper(context);
+        }
+        return instance;
+    }
+    
+    /**
+     * Play a track with enhanced error handling and fallbacks
+     * @param track Track to play
+     */
+    public void playTrack(Track track) {
+        if (track == null) {
+            Log.e(TAG, "Cannot play null track");
+            if (listener != null) {
+                listener.onPlaybackError("Invalid track");
+            }
+            return;
+        }
+        
+        // Set the current track
+        currentTrack = track;
+        
+        // Notify that we're loading
+        if (listener != null) {
+            listener.onLoadingStateChanged(true);
+            listener.onTrackChanged(track);
+        }
+        
+        Log.d(TAG, "Playing track: " + track.getTitle() + " by " + track.getArtist());
+        
+        // Clear failed URLs set when starting a new track
+        failedUrls.clear();
+        
+        // Check if the track has a preview URL
+        String previewUrl = track.getPreviewUrl();
+        if (previewUrl != null && !previewUrl.isEmpty() && validateUrl(previewUrl)) {
+            Log.d(TAG, "Track has preview URL: " + previewUrl);
+            playWithUrl(previewUrl);
+            return;
+        }
+        
+        // Check for a Spotify ID
+        String spotifyId = track.getSpotifyId();
+        if (spotifyId != null && !spotifyId.isEmpty()) {
+            Log.d(TAG, "Track has Spotify ID: " + spotifyId);
+            resolveAndPlaySpotifyTrack(track);
+            return;
+        }
+        
+        // Try with YouTube URL if available
+        String youtubeUrl = track.getYoutubeUrl();
+        if (youtubeUrl != null && !youtubeUrl.isEmpty() && validateUrl(youtubeUrl)) {
+            Log.d(TAG, "Track has YouTube URL: " + youtubeUrl);
+            playWithUrl(youtubeUrl);
+            return;
+        }
+        
+        // Try with SoundCloud URL if available
+        String soundCloudUrl = track.getSoundCloudUrl();
+        if (soundCloudUrl != null && !soundCloudUrl.isEmpty()) {
+            Log.d(TAG, "Track has SoundCloud URL: " + soundCloudUrl);
+            soundCloudHelper.resolveStreamUrl(soundCloudUrl, new SoundCloudHelper.SoundCloudCallback() {
+                @Override
+                public void onSuccess(String streamUrl) {
+                    if (streamUrl != null && !streamUrl.isEmpty()) {
+                        playWithUrl(streamUrl);
+                    } else {
+                        attemptToPlayViaSearch(track);
+                    }
+                }
+                
+                @Override
+                public void onError(String error) {
+                    attemptToPlayViaSearch(track);
+                }
+            });
+            return;
+        }
+        
+        // Try with Piped URL if available
+        String pipedUrl = track.getPipedUrl();
+        if (pipedUrl != null && !pipedUrl.isEmpty()) {
+            Log.d(TAG, "Track has Piped URL: " + pipedUrl);
+            playWithUrl(pipedUrl);
+            return;
+        }
+        
+        // If we got here, we don't have a valid URL, so try all available fallbacks
+        Log.d(TAG, "No valid playback URL found, trying fallbacks");
+        
+        // Try a search-based approach as a last resort
+        attemptToPlayViaSearch(track);
+    }
+    
+    /**
+     * Validate that a URL is likely to be playable
+     */
+    private boolean validateUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Basic URL validation
+        return url.startsWith("http://") || 
+               url.startsWith("https://") || 
+               url.startsWith("content://") ||
+               url.startsWith("file://") ||
+               new File(url).exists();
+    }
+    
+    /**
+     * Try to find a Spotify track as fallback for playing
+     */
+    private void attemptSpotifyFallback(Track track) {
+        if (track == null) {
+            onPlaybackError("Invalid track");
+            return;
+        }
+        
+        // Prevent infinite recursion - check if we've tried this Spotify ID already
+        if (track.getPreviewUrl() == null && track.getLastFallbackAttempt() != null && 
+            track.getLastFallbackAttempt().equals(track.getSpotifyId())) {
+            Log.d(TAG, "Preventing infinite fallback loop for track: " + track.getTitle());
+            useBackupAudio();
+            return;
+        }
+        
+        // Mark this Spotify ID as attempted for fallback to prevent loops
+        track.setLastFallbackAttempt(track.getSpotifyId());
+        
+        Log.d(TAG, "Attempting Spotify fallback for: " + track.getTitle());
+        
+        // First, check if we have any direct URLs available
+        if (track.getYoutubeUrl() != null && !track.getYoutubeUrl().isEmpty()) {
+            Log.d(TAG, "Using YouTube URL as fallback: " + track.getYoutubeUrl());
+            playWithUrl(track.getYoutubeUrl());
+            return;
+        }
+        
+        if (track.getPipedUrl() != null && !track.getPipedUrl().isEmpty()) {
+            Log.d(TAG, "Using Piped URL as fallback: " + track.getPipedUrl());
+            playWithUrl(track.getPipedUrl());
+            return;
+        }
+        
+        // If we don't have any direct URLs, search by track title and artist
+        String query = track.getTitle();
+        if (track.getArtist() != null && !track.getArtist().isEmpty()) {
+            query += " " + track.getArtist(); 
+        }
+        
+        // Search by track title and artist
+        Log.d(TAG, "Searching Spotify for alternative track: " + query);
+        spotifyHelper.searchTrack(query, "track", new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String response) {
+                try {
+                    JSONObject jsonResponse = new JSONObject(response);
+                    if (jsonResponse.has("tracks") && jsonResponse.getJSONObject("tracks").has("items")) {
+                        JSONArray items = jsonResponse.getJSONObject("tracks").getJSONArray("items");
+                        
+                        if (items.length() > 0) {
+                            JSONObject spotifyTrack = items.getJSONObject(0);
+                            String spotifyId = spotifyTrack.getString("id");
+                            track.setSpotifyId(spotifyId);
+                            
+                            // Try to get preview URL
+                            if (spotifyTrack.has("preview_url") && !spotifyTrack.isNull("preview_url")) {
+                                final String previewUrl = spotifyTrack.getString("preview_url");
+                                if (previewUrl != null && !previewUrl.isEmpty()) {
+                                    Log.d(TAG, "Found alternative preview URL: " + previewUrl);
+                                track.setPreviewUrl(previewUrl);
+                                playWithUrl(previewUrl);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If we reach here, no suitable track was found
+                    Log.d(TAG, "No suitable Spotify track found, using backup audio");
+                    useBackupAudio();
+                    
+                } catch (JSONException e) {
+                    Log.e(TAG, "Error parsing Spotify response: " + e.getMessage());
+                    useBackupAudio();
+                }
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Spotify search error: " + errorMessage);
+                useBackupAudio();
+            }
+        });
+    }
+    
+    /**
+     * Play with URL with improved error handling
+     */
+    private void playWithUrl(String url) {
+        // First, strictly validate the URL to avoid FileNotFoundExceptions
+        if (url == null || url.trim().isEmpty()) {
+            Log.e(TAG, "Cannot play null or empty URL");
+            
+            // Skip calling onPlaybackError here to avoid duplicate messages
+            // Just log and try local fallback
+            if (currentTrack != null) {
+                // Try next available fallback instead of going directly to useBackupAudio
+                handlePlaybackFailure(url, new Exception("Empty or null URL"));
+            } else {
+                if (listener != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onPlaybackError("Invalid audio URL");
+                        listener.onLoadingStateChanged(false);
+                        listener.onBufferingEnd();
+                    });
+                }
+            }
+            return;
+        }
+        
+        // Track attempted URLs for this session to avoid loops
+        if (failedUrls == null) {
+            failedUrls = new HashSet<>();
+        }
+        
+        // Check if we've already failed with this URL
+        if (failedUrls.contains(url)) {
+            Log.w(TAG, "Already failed with URL: " + url + ", trying alternative method");
+            if (currentTrack != null) {
+                handlePlaybackFailure(url, new Exception("URL already failed"));
+            } else {
+                useBackupAudio();
+            }
+            return;
+        }
+        
+        // Additional URL validation - check if URL looks valid
+        final String finalUrl;
+        
+        // Ensure URL has a proper scheme
+        if (!url.startsWith("http://") && !url.startsWith("https://") && 
+            !url.startsWith("content://") && !url.startsWith("file://")) {
+            
+            // For Spotify URLs, ensure they have https:// prefix
+            if (url.contains("spotify.com") || url.contains("api.spotify.com")) {
+                finalUrl = "https://" + url.replaceFirst("^[a-zA-Z]+://", "");
+                Log.d(TAG, "Corrected Spotify URL: " + finalUrl);
+            } else if (new File(url).exists()) {
+                // It's a valid file path
+                finalUrl = url;
+            } else if (url.contains(".")) {
+                // Probably a domain, add https://
+                finalUrl = "https://" + url;
+                Log.d(TAG, "Added https:// prefix to URL: " + finalUrl);
+            } else {
+                // Not a recognizable URL format
+                Log.e(TAG, "URL format not recognized: " + url);
+                
+                // Go to fallback methods instead of just useBackupAudio
+                if (currentTrack != null) {
+                    handlePlaybackFailure(url, new Exception("Invalid URL format"));
+                } else {
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onPlaybackError("Invalid URL format");
+                            listener.onLoadingStateChanged(false);
+                            listener.onBufferingEnd();
+                        });
+                    }
+                }
+                return;
+            }
+        } else {
+            finalUrl = url;
+        }
+        
+        Log.d(TAG, "Attempting to play URL: " + finalUrl);
+        
+        // Reset any existing media player
+        resetMediaPlayer();
+        
+        // Create a new media player if needed
+        if (mediaPlayer == null) {
+            setupMediaPlayer();
+        }
+        
+        // Add detailed logging for URL type
+        final String urlType;
+        if (finalUrl.startsWith("http://") || finalUrl.startsWith("https://")) {
+            urlType = "web";
+        } else if (finalUrl.startsWith("content://")) {
+            urlType = "content";
+        } else if (finalUrl.startsWith("file://")) {
+            urlType = "file_uri";
+        } else if (finalUrl.startsWith("asset://")) {
+            urlType = "asset";
+        } else if (finalUrl.startsWith("/")) {
+            urlType = "absolute_path";
+        } else {
+            urlType = "relative_path";
+        }
+        Log.d(TAG, "URL type detected: " + urlType);
+        
+        // Store the URL as final to use in lambda expressions
+        currentTrackUrl = finalUrl;
+        
+        // Initialize retry count
+        final int[] retryCount = {0};
+        final int MAX_RETRIES = 3;
+        
+        // Create an internal retry handler
+        final Handler retryHandler = new Handler(Looper.getMainLooper());
+        
+        // Create the retry runnable that will be called if playback fails
+        final Runnable retryRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (retryCount[0] < MAX_RETRIES) {
+                    retryCount[0]++;
+                    int delayMs = 1000 * retryCount[0]; // Increasing delay for each retry
+                    
+                    Log.d(TAG, "Retrying playback (attempt " + retryCount[0] + "/" + MAX_RETRIES + ") in " + delayMs + "ms");
+                    
+                    // Only show first retry to user to avoid toast floods
+                    if (retryCount[0] == 1 && listener != null) {
+                        listener.onPlaybackError("Retrying playback...");
+                    }
+                    
+                    // Schedule the retry after a delay
+                    retryHandler.postDelayed(() -> {
+                        try {
+                            // Reset and try again
+                            resetMediaPlayer();
+                            setDataSourceWithUrlType(finalUrl, urlType);
+                            
+                            // Prepare asynchronously
+                            mediaPlayer.prepareAsync();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error during retry attempt " + retryCount[0] + ": " + e.getMessage());
+                            
+                            // Try one more time or give up
+                            if (retryCount[0] < MAX_RETRIES) {
+                                retryHandler.postDelayed(this, delayMs);
+                            } else {
+                                // Mark this URL as failed to avoid retry loops
+                                failedUrls.add(finalUrl);
+                                // Give up and try fallback methods
+                                handlePlaybackFailure(finalUrl, e);
+                            }
+                        }
+                    }, delayMs);
+                } else {
+                    // Mark this URL as failed to avoid retry loops
+                    failedUrls.add(finalUrl);
+                    // We've exhausted all retries, try fallback methods
+                    Log.e(TAG, "All retry attempts failed for URL: " + finalUrl);
+                    handlePlaybackFailure(finalUrl, null);
+                }
+            }
+        };
+        
+        try {
+            // Notify UI that we're buffering
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onBufferingStart();
+                    listener.onLoadingStateChanged(true);
+                });
+            }
+            
+            // Update state
+            isBuffering = true;
+            isPreparing = true;
+            
+            // Set error listener to handle retries
+            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                // Log detailed error information
+                String errorMessage = getErrorMessageFromCodes(what, extra);
+                Log.e(TAG, "MediaPlayer error: " + errorMessage + " for URL: " + finalUrl);
+                
+                // For certain error codes, don't retry because they won't succeed
+                boolean shouldRetry = true;
+                
+                // These error codes indicate the resource is fundamentally broken or unavailable
+                // Retrying won't help, so we should just move to fallback methods
+                if (what == -38 ||   // Resource not found
+                    what == -110 ||  // File not found
+                    what == MediaPlayer.MEDIA_ERROR_MALFORMED || 
+                    what == MediaPlayer.MEDIA_ERROR_UNSUPPORTED) {
+                    
+                    Log.d(TAG, "Error " + what + " indicates resource issue, skipping retries");
+                    shouldRetry = false;
+                    
+                    // Add this URL to failed URLs to avoid trying it again
+                    failedUrls.add(finalUrl);
+                }
+                
+                if (shouldRetry) {
+                    // Start the retry process
+                    retryRunnable.run();
+                } else {
+                    // Skip retries and go straight to fallback methods
+                    handlePlaybackFailure(finalUrl, new Exception(errorMessage));
+                }
+                
+                return true; // Error handled
+            });
+            
+            // Set on buffering update listener for better UI feedback
+            mediaPlayer.setOnBufferingUpdateListener((mp, percent) -> {
+                if (percent != lastBufferingPercent) {
+                    lastBufferingPercent = percent;
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onBufferingUpdate(percent);
+                        });
+                    }
+                }
+            });
+            
+            // Set prepared listener
+            mediaPlayer.setOnPreparedListener(mp -> {
+                Log.d(TAG, "MediaPlayer prepared successfully for URL: " + finalUrl);
+                
+                // Update state
+                isPreparing = false;
+                isBuffering = false;
+                isLoading = false;
+                
+                // Notify UI that loading/buffering has ended
+                if (listener != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onBufferingEnd();
+                        listener.onLoadingStateChanged(false);
+                    });
+                }
+                
+                // Start playback
+                try {
+                    if (!requestAudioFocus()) {
+                        Log.e(TAG, "Failed to get audio focus");
+                        onPlaybackError("Could not get audio focus");
+                        return;
+                    }
+                    
+                    // Acquire wake lock to prevent playback from stopping when screen is off
+                    acquireWakeLock();
+                    
+                    // Start playback
+                    mp.start();
+                    boolean isPlayerPlaying = mp.isPlaying();
+                    
+                    // Update UI
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onPlaybackStateChanged(isPlayerPlaying);
+                            if (isPlayerPlaying) {
+                                listener.onTrackPlay(currentTrack);
+                            }
+                        });
+                    }
+                    
+                    // Setup seekbar updates
+                    if (seekBar != null) {
+                        setupSeekBarUpdater();
+                    }
+                    
+                    // Setup verification to detect if playback is actually progressing
+                    setupPlaybackVerification();
+                    
+                    // Set completion listener
+                    mp.setOnCompletionListener(AudioPlayerHelper.this);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error starting playback after preparation: " + e.getMessage());
+                    onPlaybackError("Error starting playback: " + e.getMessage());
+                    mp.reset();
+                }
+            });
+            
+            // Try to set data source and prepare
+            try {
+                // Set data source based on URL type
+                setDataSourceWithUrlType(finalUrl, urlType);
+                
+                // Prepare asynchronously to avoid blocking UI thread
+                mediaPlayer.prepareAsync();
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting data source: " + e.getMessage());
+                
+                // Start retry process
+                retryRunnable.run();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error during playback setup: " + e.getMessage());
+            
+            // Mark this URL as failed
+            failedUrls.add(finalUrl);
+            
+            // Go to fallback
+            handlePlaybackFailure(finalUrl, e);
+        }
+    }
+    
+    /**
+     * Helper method to set the correct data source based on URL type
+     */
+    private void setDataSourceWithUrlType(String url, String urlType) throws IOException {
+        switch (urlType) {
+            case "web":
+                Log.d(TAG, "Setting web URL data source");
+                
+                // Configure for Spotify streaming if applicable
+                configureForSpotifyStreaming(mediaPlayer, url);
+                
+                // For HTTP/HTTPS URLs, add headers to help the extractors
+                if (url.startsWith("http")) {
+                    try {
+                        Map<String, String> headers = new HashMap<>();
+                        
+                        // Add user agent to make servers happy
+                        headers.put("User-Agent", "Mozilla/5.0 (Android " + Build.VERSION.RELEASE + ")");
+                        
+                        // If it's a streaming URL, add range support headers
+                        headers.put("Accept-Encoding", "identity");  // Don't compress audio
+                        headers.put("Connection", "keep-alive");     // Keep connection open
+                        
+                        // For Spotify URLs, add special headers
+                        if (url.contains("spotify.com")) {
+                            headers.put("Accept", "audio/*, application/octet-stream");
+                        }
+                        
+                        // Set data source with headers - using proper signature
+                        Uri uri = Uri.parse(url);
+                        mediaPlayer.setDataSource(context, uri, headers);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error setting headers, trying without: " + e.getMessage());
+                        // Fallback to simple data source
+                        mediaPlayer.setDataSource(url);
+                    }
+                } else {
+                    // For non-HTTP URLs, use simple data source
+                    mediaPlayer.setDataSource(url);
+                }
+                break;
+                
+            case "content":
+                Log.d(TAG, "Setting content URI data source");
+                mediaPlayer.setDataSource(context, Uri.parse(url));
+                break;
+                
+            case "file_uri":
+                Log.d(TAG, "Setting file URI data source");
+                File fileUri = new File(url.substring(7));
+                if (fileUri.exists() && fileUri.canRead()) {
+                    mediaPlayer.setDataSource(context, Uri.fromFile(fileUri));
+                } else {
+                    throw new IOException("File does not exist or cannot be read: " + url);
+                }
+                break;
+                
+            case "absolute_path":
+                Log.d(TAG, "Setting absolute path data source");
+                File absFile = new File(url);
+                if (absFile.exists() && absFile.canRead()) {
+                    mediaPlayer.setDataSource(context, Uri.fromFile(absFile));
+                } else {
+                    throw new IOException("File does not exist or cannot be read: " + url);
+                }
+                break;
+                
+            case "asset":
+                Log.d(TAG, "Setting asset data source: " + url);
+                // Assume URL format is "asset://filename.mp3"
+                String assetName = url.substring(8); // Remove "asset://" prefix
+                AssetFileDescriptor afd = context.getAssets().openFd(assetName);
+                mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                afd.close();
+                break;
+                
+            case "relative_path":
+                Log.d(TAG, "Setting relative path data source");
+                File relFile = new File(url);
+                if (relFile.exists() && relFile.canRead()) {
+                    mediaPlayer.setDataSource(context, Uri.fromFile(relFile));
+                } else {
+                    // If it's not a valid file, try as a HTTP URL (in case it's missing the prefix)
+                    String httpUrl = "https://" + url;
+                    Log.d(TAG, "URL doesn't look like a file or valid URL, trying as HTTP: " + httpUrl);
+                    
+                    // Configure for Spotify streaming if applicable
+                    configureForSpotifyStreaming(mediaPlayer, httpUrl);
+                    
+                    try {
+                        Map<String, String> headers = new HashMap<>();
+                        headers.put("User-Agent", "Mozilla/5.0 (Android " + Build.VERSION.RELEASE + ")");
+                        headers.put("Accept-Encoding", "identity");
+                        
+                        // Set data source with headers - using proper signature
+                        Uri uri = Uri.parse(httpUrl);
+                        mediaPlayer.setDataSource(context, uri, headers);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error setting headers, trying without: " + e.getMessage());
+                        // Fallback to simple data source
+                        mediaPlayer.setDataSource(httpUrl);
+                    }
+                }
+                break;
+                
+            default:
+                Log.d(TAG, "Using default data source handling");
+                mediaPlayer.setDataSource(url);
+                break;
+        }
+    }
+    
+    /**
+     * Handle failure after retries are exhausted
+     */
+    private void handlePlaybackFailure(String url, Exception error) {
+        String errorMsg = (error != null) ? error.getMessage() : "All retry attempts failed";
+        Log.e(TAG, "Playback failure for URL: " + url + " - " + errorMsg);
+        
+        // Mark this URL as failed to avoid trying it again
+        if (url != null) {
+            failedUrls.add(url);
+        }
+        
+        // First check if we keep retrying the same URL to avoid infinite fallback loops
+        if (currentTrackUrl != null && currentTrackUrl.equals(url)) {
+            // We've already tried this URL, so we should try a completely different approach
+            Log.d(TAG, "Detected potential fallback loop for URL: " + url);
+        }
+        
+        // Reset media player state
+        resetMediaPlayer();
+        
+        // Try different source types in sequence
+        if (currentTrack != null) {
+            // Check if there's a preview URL that we haven't tried yet
+            String previewUrl = currentTrack.getPreviewUrl();
+            if (previewUrl != null && !previewUrl.isEmpty() && !failedUrls.contains(previewUrl)) {
+                Log.d(TAG, "Attempting preview URL fallback: " + previewUrl);
+                playWithUrl(previewUrl);
+                return;
+            }
+            
+            // Try YouTube URL if available and not already tried
+            String youtubeUrl = currentTrack.getYoutubeUrl();
+            if (youtubeUrl != null && !youtubeUrl.isEmpty() && !failedUrls.contains(youtubeUrl)) {
+                Log.d(TAG, "Attempting YouTube fallback: " + youtubeUrl);
+                playWithUrl(youtubeUrl);
+                return;
+            }
+            
+            // Try Piped URL if available and not already tried
+            String pipedUrl = currentTrack.getPipedUrl();
+            if (pipedUrl != null && !pipedUrl.isEmpty() && !failedUrls.contains(pipedUrl)) {
+                Log.d(TAG, "Attempting Piped fallback: " + pipedUrl);
+                playWithUrl(pipedUrl);
+                return;
+            }
+            
+            // Try Spotify if available
+            String spotifyId = currentTrack.getSpotifyId();
+            if (spotifyId != null && !spotifyId.isEmpty() && 
+                (currentTrack.getLastFallbackAttempt() == null || 
+                !spotifyId.equals(currentTrack.getLastFallbackAttempt()))) {
+                
+                Log.d(TAG, "Attempting Spotify fallback with ID: " + spotifyId);
+                
+                // Record this attempt to prevent loops
+                currentTrack.setLastFallbackAttempt(spotifyId);
+                
+                // Try to resolve and play
+                resolveAndPlaySpotifyTrack(currentTrack);
+                return;
+            }
+            
+            // Try SoundCloud if available
+            String soundCloudUrl = currentTrack.getSoundCloudUrl();
+            if (soundCloudUrl != null && !soundCloudUrl.isEmpty() && !failedUrls.contains(soundCloudUrl)) {
+                Log.d(TAG, "Attempting SoundCloud fallback: " + soundCloudUrl);
+                
+                // Try to resolve SoundCloud stream URL
+                soundCloudHelper.resolveStreamUrl(soundCloudUrl, new SoundCloudHelper.SoundCloudCallback() {
+                    @Override
+                    public void onSuccess(String streamUrl) {
+                        if (streamUrl != null && !streamUrl.isEmpty() && !failedUrls.contains(streamUrl)) {
+                            playWithUrl(streamUrl);
+                        } else {
+                            // Try searching as a last resort
+                            attemptToPlayViaSearch(currentTrack);
+                        }
+                    }
+                    
+                    @Override
+                    public void onError(String error) {
+                        // Try searching as a last resort
+                        attemptToPlayViaSearch(currentTrack);
+                    }
+                });
+                return;
+            }
+            
+            // Try the offline cache if available
+            if (musicCache != null && musicCache.isTrackCached(currentTrack.getId())) {
+                Log.d(TAG, "Attempting to play from cache");
+                File cachedFile = musicCache.getCachedFile(currentTrack.getId());
+                if (cachedFile != null && cachedFile.exists()) {
+                    playLocalFile(cachedFile);
+                    return;
+                }
+            }
+            
+            // Try a search-based approach as a last resort
+            attemptToPlayViaSearch(currentTrack);
+        } else {
+            // No currentTrack to work with, just show error
+            onPlaybackError("Could not play this track after multiple attempts");
+        }
+    }
+    
+    /**
+     * Use a locally bundled audio file as a fallback
+     */
+    private void useLocalFallback(Track track) {
+        Log.d(TAG, "Using local fallback audio for track: " + (track != null ? track.getTitle() : "null"));
+        
+        // Instead of trying to play a fallback asset which may not exist,
+        // just show a user-friendly message
+        useBackupAudio();
+    }
+    
+    /**
+     * Play a track from a local file
+     */
+    public void playLocalFile(File file) {
+        if (file == null) {
+            Log.e(TAG, "Cannot play null file");
+            onPlaybackError("Invalid file");
+            return;
+        }
+
+        if (!file.exists()) {
+            Log.e(TAG, "File does not exist: " + file.getAbsolutePath());
+            onPlaybackError("File not found: " + file.getName());
+            return;
+        }
+        
+        if (!file.canRead()) {
+            Log.e(TAG, "Cannot read file: " + file.getAbsolutePath());
+            onPlaybackError("Cannot access file: " + file.getName());
+            return;
+        }
+
+        if (file.length() == 0) {
+            Log.e(TAG, "File is empty: " + file.getAbsolutePath());
+            onPlaybackError("Empty file: " + file.getName());
+            return;
+        }
+
+        Log.d(TAG, "Playing local file: " + file.getAbsolutePath());
+        
+        // Create a track object from the file name if current track is null
+        if (currentTrack == null) {
+            String fileName = file.getName();
+            String title = fileName;
+            
+            // Try to extract title from filename
+            if (fileName.contains(".")) {
+                title = fileName.substring(0, fileName.lastIndexOf('.'));
+            }
+            
+            // Replace underscores with spaces
+            title = title.replace('_', ' ');
+            
+            currentTrack = new Track();
+            currentTrack.setTitle(title);
+            currentTrack.setArtist("Local File");
+            currentTrack.setPreviewUrl(file.getAbsolutePath());
+        }
+        
+        try {
+            // Reset the media player
+            if (mediaPlayer != null) {
+                if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            mediaPlayer.reset();
+        } else {
+                setupMediaPlayer();
+        }
+        
+            // Request audio focus before playback
+        if (!requestAudioFocus()) {
+                Log.e(TAG, "Failed to get audio focus");
+                onPlaybackError("Could not get audio focus");
+            return;
+        }
+        
+            // Set up the media player with the file URI
+            Uri fileUri = Uri.fromFile(file);
+            mediaPlayer.setDataSource(context, fileUri);
+            
+            // Prepare the media player asynchronously
+            mediaPlayer.prepareAsync();
+            mediaPlayer.setOnPreparedListener(mp -> {
+                isLoading = false;
+                
+                if (listener != null) {
+                    listener.onLoadingStateChanged(false);
+                    listener.onBufferingEnd();
+                }
+                
+                // Start playback
+                mp.start();
+                boolean isPlayerPlaying = mp.isPlaying();
+                
+                // Update duration and position
+                if (seekBar != null) {
+                    setupSeekBarUpdater();
+                }
+                
+                // Notify listeners
+                if (listener != null) {
+                    listener.onPlaybackStateChanged(isPlayerPlaying);
+                    listener.onTrackChanged(currentTrack);
+                }
+                
+                // Set completion listener
+                mp.setOnCompletionListener(this);
+            });
+            
+            // Set error listener
+            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                Log.e(TAG, "MediaPlayer error during local playback: what=" + what + ", extra=" + extra);
+                String errorMessage;
+                
+                switch (what) {
+                    case MediaPlayer.MEDIA_ERROR_IO:
+                        errorMessage = "File I/O error";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_MALFORMED:
+                        errorMessage = "Malformed media file";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_UNSUPPORTED:
+                        errorMessage = "Unsupported audio format";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_TIMED_OUT:
+                        errorMessage = "Connection timeout";
+                        break;
+                    default:
+                        errorMessage = "Playback error: " + what;
+                }
+                
+                onPlaybackError(errorMessage);
+                return true; // Error handled
+            });
+            
+        } catch (IOException e) {
+            Log.e(TAG, "Error playing local file: " + e.getMessage(), e);
+            onPlaybackError("Cannot play file: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "MediaPlayer in illegal state: " + e.getMessage(), e);
+            onPlaybackError("Player error: " + e.getMessage());
+            if (mediaPlayer != null) {
+                mediaPlayer.reset();
+            }
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception during playback: " + e.getMessage(), e);
+            onPlaybackError("Permission denied: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error during local playback: " + e.getMessage(), e);
+            onPlaybackError("Playback error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Helper method to handle playback errors in a consistent way
+     */
+    private void onPlaybackError(String errorMessage) {
+        Log.e(TAG, "Playback error: " + errorMessage);
+        
+        // Store last error time to prevent excessive toasts
+        long currentTime = System.currentTimeMillis();
+        
+        // Only notify UI if we have a listener and haven't shown too many errors recently
+        if (listener != null && (currentTime - lastErrorNotificationTime > ERROR_THROTTLE_MS)) {
+            lastErrorNotificationTime = currentTime;
+            
+            // Reset error counter if it's been a while since the last error
+            if (currentTime - lastErrorResetTime > ERROR_RESET_MS) {
+                errorNotificationCount = 0;
+                lastErrorResetTime = currentTime;
+            }
+            
+            // Check if we've shown too many errors
+            if (errorNotificationCount < MAX_ERROR_NOTIFICATIONS) {
+                errorNotificationCount++;
+                
+                // Use main thread for UI callbacks
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onPlaybackError(errorMessage);
+                    listener.onBufferingEnd();
+            listener.onLoadingStateChanged(false);
+                });
+            } else {
+                // Just log that we're suppressing additional errors
+                Log.d(TAG, "Suppressing additional error messages (limit reached)");
+                
+                // Still update UI state without showing error message
+                new Handler(Looper.getMainLooper()).post(() -> {
+            listener.onBufferingEnd();
+                    listener.onLoadingStateChanged(false);
+                });
+            }
+        }
+    }
+    
+    // Constants for error throttling
+    private static final long ERROR_THROTTLE_MS = 1000; // Min time between error notifications
+    private static final long ERROR_RESET_MS = 10000; // Reset error count after this time
+    private static final int MAX_ERROR_NOTIFICATIONS = 3; // Max errors to show in ERROR_RESET_MS period
+    
+    // Variables for error throttling
+    private long lastErrorNotificationTime = 0;
+    private long lastErrorResetTime = 0;
+    private int errorNotificationCount = 0;
+    
+    /**
+     * Play an MP3 file from a file path
+     */
+    public void playMp3FromPath(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            onPlaybackError("Invalid file path");
+            return;
+        }
+        
+        File mp3File = new File(filePath);
+        if (!mp3File.exists()) {
+            onPlaybackError("File does not exist: " + filePath);
+            return;
+        }
+        
+        // Play the file
+        playLocalFile(mp3File);
+    }
+    
+    /**
+     * Check if any network is available
+     */
+    private boolean isNetworkAvailable() {
+        try {
+            ConnectivityManager connectivityManager = 
+                    (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager == null) return false;
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network network = connectivityManager.getActiveNetwork();
+                if (network == null) return false;
+                
+                NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+                return capabilities != null && (
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                );
+            } else {
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking network availability: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Check if WiFi is connected
+     */
+    private boolean isWifiConnected() {
+        ConnectivityManager connectivityManager = 
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return false;
+        
+        NetworkInfo wifiNetwork = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        return wifiNetwork != null && wifiNetwork.isConnected();
+    }
+    
+    /**
+     * Resolve and play a track using its Spotify ID with better URL validation
+     */
+    public void resolveAndPlaySpotifyTrack(Track track) {
+        if (track == null || track.getSpotifyId() == null || track.getSpotifyId().isEmpty()) {
+            onPlaybackError("Invalid Spotify track");
+            return;
+        }
+
+        // Check if we've already tried this Spotify ID to avoid infinite loops
+        if (track.getSpotifyId().equals(track.getLastFallbackAttempt())) {
+            Log.d(TAG, "Preventing infinite Spotify resolution loop for ID: " + track.getSpotifyId());
+            attemptToPlayViaSearch(track); // Use search as fallback instead of showing error
+            return;
+        }
+
+        if (context == null) {
+            Log.e(TAG, "Context is null when trying to resolve Spotify track");
+            onPlaybackError("Internal error: no context available");
+            return;
+        }
+        
+        final Context appContext = context.getApplicationContext();
+        final String spotifyId = track.getSpotifyId();
+        
+        Log.d(TAG, "Resolving Spotify track: " + spotifyId);
+        
+        // Mark this ID as attempted to prevent loops
+        track.setLastFallbackAttempt(spotifyId);
+        
+        // Show a single loading message instead of multiple status updates
+        if (listener != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                // Only show error message if we haven't shown too many recently
+                if (System.currentTimeMillis() - lastErrorNotificationTime > ERROR_THROTTLE_MS * 3) {
+                    listener.onPlaybackError("Loading track...");
+                    lastErrorNotificationTime = System.currentTimeMillis();
+                }
+                listener.onLoadingStateChanged(true);
+            });
+        }
+        
+        // First try getTrackPreviewUrl as it's more reliable for playback
+        spotifyHelper.getTrackPreviewUrl(spotifyId, new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String previewUrl) {
+                if (previewUrl != null && !previewUrl.isEmpty() && isValidPlaybackUrl(previewUrl)) {
+                    Log.d(TAG, "Found direct preview URL for Spotify track: " + previewUrl);
+                    track.setPreviewUrl(previewUrl);
+                    playWithUrl(previewUrl);
+                } else {
+                    // If no direct preview URL or invalid URL, get full track info
+                    Log.d(TAG, "No valid preview URL found, getting full track info");
+                    getFullTrackInfoAndPlay(track, spotifyId);
+                }
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Error getting Spotify track preview URL: " + errorMessage);
+                // Fall back to getFullTrackInfo
+                getFullTrackInfoAndPlay(track, spotifyId);
+            }
+        });
+    }
+    
+    /**
+     * Check if a URL is likely to be playable by testing its format and accessibility
+     */
+    private boolean isValidPlaybackUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check for valid URL format for media playback
+        if (!url.startsWith("http://") && !url.startsWith("https://") && 
+            !url.startsWith("content://") && !url.startsWith("file://")) {
+            return false;
+        }
+        
+        // For Spotify preview URLs, sometimes they're valid but don't actually work
+        // See if they contain the expected pattern
+        if (url.contains("spotify.com")) {
+            if (!url.contains("/mp3-preview/")) {
+                Log.d(TAG, "Spotify URL doesn't contain expected preview pattern: " + url);
+                return false;
+            }
+            
+            // Check if URL has excessive redirects or query parameters which often fail
+            if (url.contains("?") && url.split("\\?")[1].length() > 50) {
+                Log.d(TAG, "Spotify URL has suspicious query parameters: " + url);
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Helper method to get full track info and try to play
+     */
+    private void getFullTrackInfoAndPlay(Track track, String spotifyId) {
+        Log.d(TAG, "Getting full track info for Spotify ID: " + spotifyId);
+        
+        // Get full track info
+        spotifyHelper.getFullTrackInfo(spotifyId, new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String response) {
+                try {
+                    JSONObject trackInfo = new JSONObject(response);
+                    
+                    // Update the track with more complete info
+                    if (trackInfo.has("name")) {
+                        track.setTitle(trackInfo.getString("name"));
+                    }
+                    
+                    if (trackInfo.has("artists") && trackInfo.getJSONArray("artists").length() > 0) {
+                        JSONObject artist = trackInfo.getJSONArray("artists").getJSONObject(0);
+                        track.setArtist(artist.getString("name"));
+                    }
+                    
+                    if (trackInfo.has("album") && trackInfo.getJSONObject("album").has("name")) {
+                        track.setAlbum(trackInfo.getJSONObject("album").getString("name"));
+                    }
+                    
+                    if (trackInfo.has("album") && 
+                        trackInfo.getJSONObject("album").has("images") && 
+                        trackInfo.getJSONObject("album").getJSONArray("images").length() > 0) {
+                        JSONObject image = trackInfo.getJSONObject("album").getJSONArray("images").getJSONObject(0);
+                        track.setAlbumArt(image.getString("url"));
+                    }
+                    
+                    if (trackInfo.has("duration_ms")) {
+                        track.setDurationMs(trackInfo.getLong("duration_ms"));
+                    }
+                    
+                    // Check if track has a preview URL
+                    if (trackInfo.has("preview_url") && !trackInfo.isNull("preview_url")) {
+                        String previewUrl = trackInfo.getString("preview_url");
+                        if (previewUrl != null && !previewUrl.isEmpty() && 
+                           (previewUrl.startsWith("http://") || previewUrl.startsWith("https://"))) {
+                            // Found a valid preview URL
+                            Log.d(TAG, "Found valid Spotify preview URL: " + previewUrl);
+                            track.setPreviewUrl(previewUrl);
+                            playWithUrl(previewUrl);
+                    return;
+                        } else {
+                            Log.d(TAG, "Found invalid preview URL: " + previewUrl + ", trying alternative methods");
+                        }
+                    } else {
+                        Log.d(TAG, "No preview URL available for Spotify track, trying alternative methods");
+                    }
+                    
+                    // No preview URL found, try to use alternative sources
+                    // First try direct search with the title and artist
+                    if (track.getTitle() != null && !track.getTitle().isEmpty()) {
+                        String searchQuery = track.getTitle();
+                        if (track.getArtist() != null && !track.getArtist().isEmpty()) {
+                            searchQuery += " " + track.getArtist();
+                        }
+                        
+                        Log.d(TAG, "Searching Spotify catalog for: " + searchQuery);
+                        
+                        // Try to find via search
+                        spotifyHelper.searchTracks(searchQuery, "track", new SpotifyHelper.SpotifyCallback() {
+                    @Override
+                            public void onSuccess(String result) {
+                                try {
+                                    JSONObject jsonResponse = new JSONObject(result);
+                                    if (jsonResponse.has("tracks") && jsonResponse.getJSONObject("tracks").has("items")) {
+                                        JSONArray items = jsonResponse.getJSONObject("tracks").getJSONArray("items");
+                                        
+                                        // Look through results for one with a preview URL
+                                        for (int i = 0; i < Math.min(items.length(), 5); i++) {
+                                            JSONObject item = items.getJSONObject(i);
+                                            String previewUrl = item.optString("preview_url", null);
+                                            
+                                            if (previewUrl != null && !previewUrl.isEmpty()) {
+                                                Log.d(TAG, "Found preview URL from search results: " + previewUrl);
+                                                track.setPreviewUrl(previewUrl);
+                        playWithUrl(previewUrl);
+                                                return;
+                                            }
+                                        }
+                                        
+                                        // If we reach here, no preview URLs found in search results
+                                        Log.d(TAG, "No preview URLs found in search results");
+                                        tryAlternativePlaybackSource(track);
+                    } else {
+                                        Log.d(TAG, "No search results found");
+                                        tryAlternativePlaybackSource(track);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error parsing search results: " + e.getMessage());
+                                    tryAlternativePlaybackSource(track);
+                                }
+                            }
+                            
+                            @Override
+                            public void onError(String errorMessage) {
+                                Log.e(TAG, "Error searching Spotify: " + errorMessage);
+                                tryAlternativePlaybackSource(track);
+                            }
+                        });
+                    } else {
+                        // No title available, try alternative sources
+                        tryAlternativePlaybackSource(track);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing Spotify track info: " + e.getMessage(), e);
+                    tryAlternativePlaybackSource(track);
+                }
+                    }
+                    
+                    @Override
+                    public void onError(String errorMessage) {
+                Log.e(TAG, "Error getting Spotify track info: " + errorMessage);
+                tryAlternativePlaybackSource(track);
+            }
+        });
+    }
+    
+    /**
+     * Try alternative sources for playing a track when Spotify API fails
+     */
+    private void tryAlternativePlaybackSource(Track track) {
+        if (track == null) {
+            useBackupAudio();
+            return;
+        }
+        
+        Log.d(TAG, "Trying alternative sources for: " + track.getTitle());
+        
+        // First check if we already have URLs
+        if (track.getYoutubeUrl() != null && !track.getYoutubeUrl().isEmpty()) {
+            Log.d(TAG, "Using existing YouTube URL: " + track.getYoutubeUrl());
+            playWithUrl(track.getYoutubeUrl());
+            return;
+        }
+        
+        // Try to find track via Spotify search
+        if (spotifyHelper != null) {
+            final String searchQuery;
+            if (track.getArtist() != null && !track.getArtist().isEmpty()) {
+                searchQuery = track.getTitle() + " " + track.getArtist();
+            } else {
+                searchQuery = track.getTitle();
+            }
+            
+            Log.d(TAG, "Searching for track via Spotify: " + searchQuery);
+            
+            spotifyHelper.searchTracks(searchQuery, new SpotifyHelper.SpotifyCallback() {
+                @Override
+                public void onSuccess(String result) {
+                    try {
+                        JSONObject jsonObject = new JSONObject(result);
+                        
+                        if (jsonObject.has("tracks") && jsonObject.getJSONObject("tracks").has("items")) {
+                            JSONArray items = jsonObject.getJSONObject("tracks").getJSONArray("items");
+                            
+                            if (items.length() > 0) {
+                                // Get the first result
+                                JSONObject trackJson = items.getJSONObject(0);
+                                String spotifyId = trackJson.getString("id");
+                                
+                                // Check if this result has a preview URL
+                                String previewUrl = trackJson.optString("preview_url", null);
+                                
+                                if (previewUrl != null && !previewUrl.isEmpty()) {
+                                    Log.d(TAG, "Found Spotify preview URL: " + previewUrl);
+                                    track.setPreviewUrl(previewUrl);
+                                    playWithUrl(previewUrl);
+                                } else {
+                                    // If no preview URL, try to get full track details
+                                    Log.d(TAG, "Found Spotify track ID: " + spotifyId + ", getting details");
+                                    track.setSpotifyId(spotifyId);
+                                    spotifyHelper.getFullTrackInfo(spotifyId, new SpotifyHelper.SpotifyCallback() {
+                                        @Override
+                                        public void onSuccess(String trackInfo) {
+                                            try {
+                                                JSONObject json = new JSONObject(trackInfo);
+                                                if (json.has("preview_url") && !json.isNull("preview_url")) {
+                                                    String url = json.getString("preview_url");
+                                                    if (url != null && !url.isEmpty()) {
+                                                        track.setPreviewUrl(url);
+                                                        playWithUrl(url);
+                                                        return;
+                                                    }
+                                                }
+                                                useBackupAudio();
+                                            } catch (Exception e) {
+                                                Log.e(TAG, "Error parsing track info: " + e.getMessage());
+                                                useBackupAudio();
+                                            }
+                                        }
+                                        
+                                        @Override
+                                        public void onError(String errorMessage) {
+                                            Log.e(TAG, "Error getting track info: " + errorMessage);
+                                            useBackupAudio();
+                                        }
+                                    });
+                                }
+                            } else {
+                                Log.d(TAG, "No Spotify tracks found for: " + searchQuery);
+                                useBackupAudio();
+                            }
+                        } else {
+                            Log.d(TAG, "Invalid Spotify search response");
+                            useBackupAudio();
+                        }
+            } catch (Exception e) {
+                        Log.e(TAG, "Error parsing Spotify search results: " + e.getMessage());
+                        useBackupAudio();
+                    }
+                }
+                
+                @Override
+                public void onError(String errorMessage) {
+                    Log.e(TAG, "Spotify search error: " + errorMessage);
+                    useBackupAudio();
+                }
+            });
+        } else {
+            Log.e(TAG, "Spotify helper is null, cannot search for alternative sources");
+            useBackupAudio();
+        }
+    }
+    
+    /**
+     * Use a backup audio source as last resort
+     */
+    private void useBackupAudio() {
+        Log.d(TAG, "No playable URL found for this track, showing error message");
+        
+        // Reset state variables even if we don't show a message
+        isBuffering = false;
+        isPreparing = false;
+        isLoading = false;
+        
+        // Check if we've already shown this error recently to avoid flooding
+        long currentTime = System.currentTimeMillis();
+        
+        // Use a much longer throttle for "No preview available" messages
+        // as they're less important than actual playback errors
+        long noPreviewThrottleMs = ERROR_THROTTLE_MS * 5;
+        
+        if (listener != null && (currentTime - lastErrorNotificationTime > noPreviewThrottleMs)) {
+            lastErrorNotificationTime = currentTime;
+            
+            // Clear the error notification count if it's been a long time since the last error
+            if (currentTime - lastErrorResetTime > ERROR_RESET_MS) {
+                errorNotificationCount = 0;
+                lastErrorResetTime = currentTime;
+            }
+            
+            // Only show the message if we haven't shown too many errors recently
+            if (errorNotificationCount < MAX_ERROR_NOTIFICATIONS) {
+                errorNotificationCount++;
+                
+            new Handler(Looper.getMainLooper()).post(() -> {
+                listener.onPlaybackError("No preview available for this track");
+                    listener.onLoadingStateChanged(false);
+                    listener.onBufferingEnd();
+                });
+            } else {
+                // Just update UI state without showing error message
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onLoadingStateChanged(false);
+                    listener.onBufferingEnd();
+                });
+            }
+        } else {
+            // Just update UI state without showing error message
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onLoadingStateChanged(false);
+                    listener.onBufferingEnd();
+                });
+            }
+        }
+        
+        // If we have a current track, update UI to show it's stopped
+        if (listener != null && currentTrack != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                listener.onPlaybackStateChanged(false);
+            });
+        }
+    }
+    
+    /**
+     * Play a track directly from Spotify ID
+     * @param spotifyId The Spotify track ID to play
+     */
+    public void playSpotifyTrack(String spotifyId) {
+        if (spotifyId == null || spotifyId.isEmpty()) {
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onPlaybackError("Invalid Spotify ID");
+                });
+            }
+            return;
+        }
+        
+        // Create a temporary track object
+        Track track = new Track(
+            UUID.randomUUID().toString(),
+            "Loading...",
+            "Loading...",
+            "Loading...",
+            "",
+            0, // duration
+            "", // Empty preview URL
+            true // playable
+        );
+        
+        // Set Spotify ID separately
+        track.setSpotifyId(spotifyId);
+        
+        // Store track and resolve
+        this.currentTrack = track;
+        resolveAndPlaySpotifyTrack(track);
+    }
+    
+    /**
+     * Play a track by its Spotify ID with automatic URL fetching and playback
+     * This is a more streamlined version that handles the entire process
+     * 
+     * @param spotifyId The Spotify ID of the track to play
+     */
+    public void playTrackBySpotifyId(String spotifyId) {
+        if (spotifyId == null || spotifyId.isEmpty()) {
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onPlaybackError("Invalid Spotify ID");
+                });
+            }
+            return;
+        }
+        
+        Log.d(TAG, "Playing track by Spotify ID: " + spotifyId);
+        
+        // Show loading state to user
+        if (listener != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                listener.onPlaybackError("Loading track from Spotify...");
+            });
+        }
+        
+        // Create temporary track with the information we have
+        Track tempTrack = new Track(
+            UUID.randomUUID().toString(),
+            "Loading...",
+            "Loading...",
+            "Loading...",
+            "",
+            0, // duration
+            "", // No direct URL yet
+            true // playable
+        );
+        
+        // Set Spotify ID separately
+        tempTrack.setSpotifyId(spotifyId);
+        
+        // Set as current track
+        currentTrack = tempTrack;
+        
+        // Try to get direct preview URL asynchronously
+        spotifyHelper.getDirectPreviewUrl(spotifyId, new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String directUrl) {
+                // If we have a direct URL, start playing immediately
+        if (directUrl != null && !directUrl.isEmpty()) {
+                    tempTrack.setPreviewUrl(directUrl);
+            playWithUrl(directUrl);
+                }
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Error getting direct preview URL: " + errorMessage);
+                // Continue with getFullTrackInfo call below
+            }
+        });
+        
+        // Fetch the full track details including preview URL
+        spotifyHelper.getFullTrackInfo(spotifyId, new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String trackInfo) {
+                try {
+                    JSONObject json = new JSONObject(trackInfo);
+                    
+                    // Update track with fetched information
+                    if (json.has("name")) {
+                        tempTrack.setTitle(json.getString("name"));
+                    }
+                    
+                    if (json.has("artist")) {
+                        tempTrack.setArtist(json.getString("artist"));
+                    }
+                    
+                    if (json.has("album")) {
+                        tempTrack.setAlbum(json.getString("album"));
+                    }
+                    
+                    if (json.has("album_image")) {
+                        tempTrack.setAlbumArtUrl(json.getString("album_image"));
+                    }
+                    
+                    if (json.has("duration_ms")) {
+                        tempTrack.setDurationMs(json.getInt("duration_ms"));
+                    }
+                    
+                    // Check if API returned a preview URL
+                    String previewUrl = null;
+                    if (json.has("preview_url") && !json.isNull("preview_url")) {
+                        previewUrl = json.getString("preview_url");
+                        tempTrack.setPreviewUrl(previewUrl);
+                    }
+                    
+                    // If we have a new preview URL and aren't already playing, start playback
+                    if (previewUrl != null && !previewUrl.isEmpty() && (mediaPlayer == null || !mediaPlayer.isPlaying())) {
+                        playWithUrl(previewUrl);
+                    } else if (previewUrl == null || previewUrl.isEmpty()) {
+                        // If no preview URL from API and not already playing, try resolving
+                        if (mediaPlayer == null || !mediaPlayer.isPlaying()) {
+                            resolveAndPlaySpotifyTrack(tempTrack);
+                        }
+                    }
+                    
+                    // Update UI with the now-complete track info even if already playing
+                    if (listener != null && currentTrack != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onTrackPlay(tempTrack);
+                        });
+                    }
+                    
+                } catch (JSONException e) {
+                    Log.e(TAG, "Error parsing track info: " + e.getMessage(), e);
+                    
+                    // Fall back to resolveAndPlaySpotifyTrack if parsing fails
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        resolveAndPlaySpotifyTrack(tempTrack);
+                    });
+                }
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Error fetching track info: " + errorMessage);
+                
+                // Fall back to resolveAndPlaySpotifyTrack if fetching fails
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    resolveAndPlaySpotifyTrack(tempTrack);
+                });
+            }
+        });
+    }
+    
+    /**
+     * Request audio focus
+     * @return true if focus was granted
+     */
+    private boolean requestAudioFocus() {
+        if (audioManager == null) {
+            Log.e(TAG, "AudioManager is null, can't request audio focus");
+            return false;
+        }
+        
+        int result;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // For Android O and above, use AudioFocusRequest
+            AudioAttributes playbackAttributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build();
+                
+            audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(this)
+                .build();
+                
+            result = audioManager.requestAudioFocus(audioFocusRequest);
+        } else {
+            // For older Android versions
+            result = audioManager.requestAudioFocus(this, 
+                    AudioManager.STREAM_MUSIC, 
+                    AudioManager.AUDIOFOCUS_GAIN);
+        }
+        
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            audioFocusGranted = true;
+            return true;
+        } else {
+            Log.e(TAG, "Failed to get audio focus, result: " + result);
+            audioFocusGranted = false;
+            return false;
+        }
+    }
+    
+    /**
+     * Abandon audio focus when done with playback
+     */
+    private void abandonAudioFocus() {
+        if (audioManager == null) {
+            Log.e(TAG, "AudioManager is null, can't abandon audio focus");
+            return;
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+            }
+        } else {
+            audioManager.abandonAudioFocus(this);
+        }
+        
+        audioFocusGranted = false;
+        Log.d(TAG, "Audio focus abandoned");
+    }
+    
+    /**
+     * Handle audio focus changes
+     */
+    @Override
+    public void onAudioFocusChange(int focusChange) {
+        if (audioManager == null) {
+            Log.e(TAG, "AudioManager is null in onAudioFocusChange");
+            return;
+        }
+
+        switch (focusChange) {
+            case AudioManager.AUDIOFOCUS_GAIN:
+                Log.d(TAG, "Audio focus gained");
+                playbackNowAuthorized = true;
+                if (mediaPlayer == null) {
+                    setupMediaPlayer();
+                }
+                
+                if (playbackDelayed || pausedForFocusLoss) {
+                    playbackDelayed = false;
+                    pausedForFocusLoss = false;
+                    resumePlayback();
+                } else if (mediaPlayer != null) {
+                    try {
+                        mediaPlayer.setVolume(maxVolume, maxVolume);
+                    } catch (IllegalStateException e) {
+                        Log.e(TAG, "Error setting volume: " + e.getMessage());
+                    }
+                }
+                break;
+                
+            case AudioManager.AUDIOFOCUS_LOSS:
+                Log.d(TAG, "Audio focus lost");
+                playbackNowAuthorized = false;
+                playbackDelayed = false;
+                
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    wasPlayingBeforeFocusLoss = true;
+                    pausedForFocusLoss = true;
+                    pausePlayback();
+                } else {
+                    wasPlayingBeforeFocusLoss = false;
+                    pausedForFocusLoss = false;
+                }
+                break;
+                
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                Log.d(TAG, "Audio focus lost temporarily");
+                playbackNowAuthorized = false;
+                playbackDelayed = true;
+                
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    wasPlayingBeforeFocusLoss = true;
+                    pausedForFocusLoss = true;
+                    pausePlayback();
+                } else {
+                    wasPlayingBeforeFocusLoss = false;
+                }
+                break;
+                
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                Log.d(TAG, "Audio focus loss - ducking");
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    try {
+                        // Store current volume to restore later
+                        wasPlayingBeforeFocusLoss = true;
+                        // Reduce volume to 30%
+                        mediaPlayer.setVolume(0.3f, 0.3f);
+                    } catch (IllegalStateException e) {
+                        Log.e(TAG, "Error setting volume for ducking: " + e.getMessage());
+                    }
+                } else {
+                    wasPlayingBeforeFocusLoss = false;
+                }
+                break;
+                
+            default:
+                Log.d(TAG, "Unhandled audio focus change: " + focusChange);
+                break;
+        }
+    }
+    
+    /**
+     * Resume playback if paused
+     */
+    public void resumePlayback() {
+        // Check if we need to request audio focus again
+        if (!audioFocusGranted && !requestAudioFocus()) {
+            Log.e(TAG, "Cannot resume: Audio focus request denied");
+            if (listener != null) {
+                listener.onPlaybackError("Cannot resume: Audio focus denied");
+            }
+            return;
+        }
+        
+        if (mediaPlayer != null && !mediaPlayer.isPlaying() && !isPreparing) {
+            mediaPlayer.start();
+            if (listener != null && currentTrack != null) {
+                listener.onTrackPlay(currentTrack);
+            }
+            
+            if (seekBar != null) {
+                setupSeekBarUpdater();
+            }
+        }
+    }
+    
+    /**
+     * Pause current playback
+     */
+    public void pausePlayback() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+            if (listener != null) {
+                listener.onTrackPause();
+            }
+            
+            if (handler != null && updateSeekBarTask != null) {
+                handler.removeCallbacks(updateSeekBarTask);
+            }
+        }
+    }
+    
+    /**
+     * Stop playback completely
+     */
+    public void stopPlayback() {
+        if (mediaPlayer != null) {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            
+            if (listener != null) {
+                listener.onTrackStopped();
+            }
+            
+            if (handler != null && updateSeekBarTask != null) {
+                handler.removeCallbacks(updateSeekBarTask);
+            }
+            
+            // Release audio focus
+            abandonAudioFocus();
+        }
+    }
+    
+    /**
+     * Check if a track is currently playing
+     * @return true if playing
+     */
+    public boolean isPlaying() {
+        try {
+            return mediaPlayer != null && mediaPlayer.isPlaying();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "IllegalStateException in isPlaying(): " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get the current track being played
+     * @return current Track or null
+     */
+    public Track getCurrentTrack() {
+        return currentTrack;
+    }
+    
+    /**
+     * Method to set a seek bar for tracking playback progress
+     * @param seekBar The seek bar to update during playback
+     */
+    public void setSeekBar(SeekBar seekBar) {
+        this.seekBar = seekBar;
+        if (seekBar != null) {
+            seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser && mediaPlayer != null) {
+                        mediaPlayer.seekTo(progress);
+                    }
+                }
+                
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                    // Pause updates while user is dragging
+                    if (handler != null && updateSeekBarTask != null) {
+                        handler.removeCallbacks(updateSeekBarTask);
+                    }
+                }
+                
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                    // Resume updates when user stops dragging
+                    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        setupSeekBarUpdater();
+                    }
+                }
+            });
+        }
+        
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            setupSeekBarUpdater();
+        }
+    }
+    
+    private void setupSeekBarUpdater() {
+        if (handler == null || seekBar == null || mediaPlayer == null) return;
+        
+        // Remove any existing callback
+        if (updateSeekBarTask != null) {
+            handler.removeCallbacks(updateSeekBarTask);
+        }
+        
+        // Initialize the seek bar
+        seekBar.setMax(mediaPlayer.getDuration());
+        
+        // Create and post a new runnable
+        updateSeekBarTask = new Runnable() {
+            @Override
+            public void run() {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    seekBar.setProgress(mediaPlayer.getCurrentPosition());
+                    handler.postDelayed(this, 100);
+                }
+            }
+        };
+        
+        handler.post(updateSeekBarTask);
+    }
+    
+    /**
+     * Set a listener for playback events
+     * @param listener Listener to notify
+     */
+    public void setOnPlaybackChangedListener(OnPlaybackChangedListener listener) {
+        this.listener = listener;
+    }
+    
+    /**
+     * Release resources when no longer needed
+     */
+    public void releaseMediaPlayer() {
+        // Stop updates
+        if (handler != null && updateSeekBarTask != null) {
+            handler.removeCallbacks(updateSeekBarTask);
+        }
+        
+        // Release players
+        if (mediaPlayer != null) {
+            try {
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+            }
+            mediaPlayer.release();
+            mediaPlayer = null;
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing media player: " + e.getMessage());
+            }
+        }
+        
+        if (nextMediaPlayer != null) {
+            try {
+                nextMediaPlayer.release();
+                nextMediaPlayer = null;
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing next media player: " + e.getMessage());
+            }
+        }
+        
+        // Reset state
+        isPreparing = false;
+        isCrossfading = false;
+        isLoading = false;
+        currentTrack = null;
+        
+        // Release audio focus
+        abandonAudioFocus();
+    }
+    
+    /* Add these new methods for queue management */
+    
+    /**
+     * Play a playlist from the beginning
+     * @param playlist The playlist to play
+     */
+    public void playPlaylist(Playlist playlist) {
+        if (playlist == null || playlist.getTracks() == null || playlist.getTracks().isEmpty()) {
+            if (listener != null) {
+                listener.onPlaybackError("Playlist is empty");
+            }
+            return;
+        }
+        
+        // Set queue from playlist
+        playQueue.setQueueFromPlaylist(playlist);
+        
+        // Get first track (queue will handle current track)
+        Track firstTrack = playQueue.getCurrentTrack();
+        if (firstTrack != null) {
+            playTrack(firstTrack);
+        }
+    }
+    
+    /**
+     * Play a specific track within a playlist and add the rest to queue
+     * @param playlist Playlist to play
+     * @param track Track to start with
+     */
+    public void playTrackInPlaylist(Playlist playlist, Track track) {
+        if (playlist == null || playlist.getTracks() == null || playlist.getTracks().isEmpty()) {
+            if (listener != null) {
+                listener.onPlaybackError("Playlist is empty");
+            }
+            return;
+        }
+        
+        if (track == null) {
+            // Default to first track
+            playPlaylist(playlist);
+            return;
+        }
+        
+        // Set queue from playlist
+        playQueue.setQueueFromPlaylist(playlist);
+        
+        // Find track in playlist and skip to it
+        List<Track> tracks = playQueue.getQueue();
+        for (int i = 0; i < tracks.size(); i++) {
+            if (tracks.get(i).getTrackId().equals(track.getTrackId())) {
+                Track selectedTrack = playQueue.skipToIndex(i);
+                if (selectedTrack != null) {
+                    playTrack(selectedTrack);
+                }
+                return;
+            }
+        }
+        
+        // Track not found in playlist, play first track
+        Track firstTrack = playQueue.getCurrentTrack();
+        if (firstTrack != null) {
+            playTrack(firstTrack);
+        }
+    }
+    
+    /**
+     * Add a track to the end of the queue
+     * @param track Track to add
+     */
+    public void addToQueue(Track track) {
+        if (track == null) return;
+        playQueue.addToQueue(track);
+    }
+    
+    /**
+     * Add a track to play next (after current track)
+     * @param track Track to add next
+     */
+    public void addToQueueNext(Track track) {
+        if (track == null) return;
+        playQueue.addToQueueNext(track);
+    }
+    
+    /**
+     * Add list of tracks to queue
+     * @param tracks Tracks to add
+     */
+    public void addAllToQueue(List<Track> tracks) {
+        if (tracks == null || tracks.isEmpty()) return;
+        playQueue.addAllToQueue(tracks);
+    }
+    
+    /**
+     * Clear the queue
+     */
+    public void clearQueue() {
+        playQueue.clearQueue();
+    }
+    
+    /**
+     * Skip to next track in queue
+     */
+    public void skipToNext() {
+        Track nextTrack = playQueue.getNextTrack();
+        if (nextTrack != null) {
+            playTrack(nextTrack);
+        } else if (listener != null) {
+            listener.onPlaybackError("End of queue");
+        }
+    }
+    
+    /**
+     * Skip to previous track in queue or history
+     */
+    public void skipToPrevious() {
+        Track prevTrack = playQueue.getPreviousTrack();
+        if (prevTrack != null) {
+            playTrack(prevTrack);
+        } else if (listener != null) {
+            listener.onPlaybackError("No previous tracks");
+        }
+    }
+    
+    /**
+     * Skip to a specific track in the queue
+     * @param index Queue index to skip to
+     */
+    public void skipToQueueIndex(int index) {
+        Track track = playQueue.skipToIndex(index);
+        if (track != null) {
+            playTrack(track);
+        }
+    }
+    
+    /**
+     * Remove a track from the queue
+     * @param index Index to remove
+     */
+    public void removeFromQueue(int index) {
+        playQueue.removeFromQueue(index);
+    }
+    
+    /**
+     * Reorder queue item
+     * @param fromIndex Original position
+     * @param toIndex New position
+     */
+    public void moveQueueItem(int fromIndex, int toIndex) {
+        playQueue.moveQueueItem(fromIndex, toIndex);
+    }
+    
+    /**
+     * Get the current queue
+     * @return List of tracks in queue
+     */
+    public List<Track> getQueue() {
+        return playQueue.getQueue();
+    }
+    
+    /**
+     * Get recently played tracks
+     * @return List of recent tracks
+     */
+    public List<Track> getHistory() {
+        return playQueue.getHistory();
+    }
+    
+    /**
+     * Get the current position in the queue
+     * @return Current index
+     */
+    public int getCurrentQueueIndex() {
+        return playQueue.getCurrentIndex();
+    }
+    
+    /**
+     * Create a new playlist from the current queue
+     * @param name Playlist name
+     * @param description Playlist description
+     * @return New playlist
+     */
+    public Playlist createPlaylistFromQueue(String name, String description) {
+        return playQueue.createPlaylistFromQueue(name, description);
+    }
+    
+    /**
+     * Toggle shuffle mode with enhanced algorithm
+     * @return New shuffle state
+     */
+    public boolean toggleShuffle() {
+        boolean newState = !shuffleEnabled;
+        setShuffleEnabled(newState);
+        
+        // Only notify if the listener has the method (backward compatibility)
+        if (listener != null) {
+            try {
+                // Use reflection to see if the listener implements this method
+                listener.getClass().getMethod("onShuffleModeChanged", boolean.class);
+                // If we get here, the method exists, call it via reflection
+                try {
+                    listener.getClass().getMethod("onShuffleModeChanged", boolean.class)
+                        .invoke(listener, newState);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error calling onShuffleModeChanged: " + e.getMessage());
+                }
+            } catch (NoSuchMethodException e) {
+                // Method doesn't exist, ignore
+                Log.d(TAG, "Listener doesn't implement onShuffleModeChanged");
+            }
+        }
+        
+        return shuffleEnabled;
+    }
+    
+    /**
+     * Set shuffle mode
+     * @param enabled true to enable shuffle, false to disable
+     */
+    public void setShuffleEnabled(boolean enabled) {
+        this.shuffleEnabled = enabled;
+            
+        // Only notify if the listener has the method (backward compatibility)
+            if (listener != null) {
+            try {
+                // Use reflection to see if the listener implements this method
+                listener.getClass().getMethod("onShuffleModeChanged", boolean.class);
+                // If we get here, the method exists, call it via reflection
+                try {
+                    listener.getClass().getMethod("onShuffleModeChanged", boolean.class)
+                        .invoke(listener, enabled);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error calling onShuffleModeChanged: " + e.getMessage());
+                }
+            } catch (NoSuchMethodException e) {
+                // Method doesn't exist, ignore
+                Log.d(TAG, "Listener doesn't implement onShuffleModeChanged");
+            }
+        }
+    }
+    
+    /**
+     * Get current shuffle mode
+     * @return true if shuffle is enabled
+     */
+    public boolean isShuffleEnabled() {
+        return shuffleEnabled;
+    }
+    
+    /**
+     * Cycle through repeat modes
+     * @return The new repeat mode
+     */
+    public int cycleRepeatMode() {
+        // Cycle through modes: REPEAT_OFF -> REPEAT_ALL -> REPEAT_ONE -> REPEAT_OFF
+        switch (repeatMode) {
+            case REPEAT_OFF:
+                setRepeatMode(REPEAT_ALL);
+                break;
+            case REPEAT_ALL:
+                setRepeatMode(REPEAT_ONE);
+                break;
+            case REPEAT_ONE:
+                setRepeatMode(REPEAT_OFF);
+                break;
+        }
+        
+        return repeatMode;
+    }
+    
+    /**
+     * Set the repeat mode
+     * @param mode The new repeat mode
+     */
+    public void setRepeatMode(int mode) {
+        if (mode < REPEAT_OFF || mode > REPEAT_ONE) {
+            mode = REPEAT_OFF;
+        }
+        
+        this.repeatMode = mode;
+        
+        // Only notify if the listener has the method (backward compatibility)
+        if (listener != null) {
+            try {
+                // Use reflection to see if the listener implements this method
+                listener.getClass().getMethod("onRepeatModeChanged", int.class);
+                // If we get here, the method exists, call it via reflection
+                try {
+                    listener.getClass().getMethod("onRepeatModeChanged", int.class)
+                        .invoke(listener, mode);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error calling onRepeatModeChanged: " + e.getMessage());
+                }
+            } catch (NoSuchMethodException e) {
+                // Method doesn't exist, ignore
+                Log.d(TAG, "Listener doesn't implement onRepeatModeChanged");
+            }
+        }
+    }
+    
+    /**
+     * Get current repeat mode
+     * @return Current repeat mode
+     */
+    public int getRepeatMode() {
+        return repeatMode;
+    }
+    
+    /**
+     * Start updating the seek bar progress
+     */
+    private void startProgressUpdate() {
+        if (mediaPlayer == null || seekBar == null) return;
+        
+        // Make sure any existing task is removed
+        if (handler != null && updateSeekBarTask != null) {
+            handler.removeCallbacks(updateSeekBarTask);
+        }
+        
+        // Create a new runnable for updating the seek bar
+        updateSeekBarTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        int currentPosition = mediaPlayer.getCurrentPosition();
+                        int duration = mediaPlayer.getDuration();
+                        seekBar.setMax(duration);
+                        seekBar.setProgress(currentPosition);
+                    }
+                    
+                    // Schedule the next update
+                    if (handler != null && mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        handler.postDelayed(this, 1000);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error updating progress: " + e.getMessage());
+                }
+            }
+        };
+        
+        // Start the updates
+        handler.post(updateSeekBarTask);
+    }
+    
+    /**
+     * Enhanced track playing with loading animation and better error handling
+     * @param track The track to play
+     * @param showLoadingUi Whether to show loading state in UI
+     */
+    public void playTrackEnhanced(Track track, boolean showLoadingUi) {
+        if (track == null) {
+            if (listener != null) {
+                listener.onPlaybackError("Cannot play null track");
+            }
+            return;
+        }
+        
+        this.isLoading = showLoadingUi;
+        
+        // If already playing this exact track, just toggle playback
+        if (currentTrack != null && currentTrack.getTrackId().equals(track.getTrackId())) {
+            // Handle toggle instead of restarting playback
+            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                pausePlayback();
+                return;
+            } else if (mediaPlayer != null) {
+                resumePlayback();
+                return;
+            }
+        }
+        
+        // Different track - crossfade if needed
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            // Set up next track while current one is playing
+            prepareNextTrack(track);
+        } else {
+            // Direct playback with normal method
+            playTrack(track);
+        }
+    }
+    
+    /**
+     * Prepare the next track for gapless/crossfade playback
+     */
+    private void prepareNextTrack(Track track) {
+        // Save next track reference
+        this.nextTrack = track;
+        
+        // Check URL
+        String audioUrl = track.getPreviewUrl();
+        if (audioUrl == null || audioUrl.isEmpty()) {
+            if (track.getSpotifyId() != null && !track.getSpotifyId().isEmpty()) {
+                // Will handle later
+                crossfadeToNextTrack();
+                return;
+            }
+            
+            // No preview URL
+            if (listener != null) {
+                listener.onPlaybackError("No preview available");
+            }
+            return;
+        }
+        
+        // Initialize next player
+        if (SoundCloudHelper.isSoundCloudUrl(audioUrl)) {
+            // SoundCloud needs special handling, use simple crossfade
+            crossfadeToNextTrack();
+            return;
+        }
+        
+        try {
+            // Prepare next player with normal URL
+            nextMediaPlayer = new MediaPlayer();
+            nextMediaPlayer.setAudioAttributes(
+                new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            );
+            
+            // Set up next media player
+            nextMediaPlayer.setDataSource(context, Uri.parse(audioUrl));
+            nextMediaPlayer.setOnPreparedListener(mp -> {
+                // Ready for gapless playback
+                isCrossfading = true;
+                startCrossfade();
+            });
+            
+            nextMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                Log.e(TAG, "Error preparing next track: " + what + ", " + extra);
+                nextMediaPlayer.reset();
+                nextMediaPlayer.release();
+                nextMediaPlayer = null;
+                
+                // Fall back to simple crossfade
+                crossfadeToNextTrack();
+                return true;
+            });
+            
+            // Start preparing
+            nextMediaPlayer.prepareAsync();
+            
+        } catch (IOException e) {
+            Log.e(TAG, "Error preparing next player: " + e.getMessage());
+            if (nextMediaPlayer != null) {
+                nextMediaPlayer.release();
+                nextMediaPlayer = null;
+            }
+            
+            // Fall back to regular transition
+            crossfadeToNextTrack();
+        }
+    }
+    
+    /**
+     * Start crossfade from current track to next track
+     */
+    private void startCrossfade() {
+        if (mediaPlayer == null || !mediaPlayer.isPlaying()) {
+            // No need to crossfade, just play next
+            if (nextMediaPlayer != null) {
+                mediaPlayer = nextMediaPlayer;
+                currentTrack = nextTrack;
+                nextMediaPlayer = null;
+                nextTrack = null;
+                mediaPlayer.start();
+                
+                if (listener != null) {
+                    listener.onTrackPlay(currentTrack);
+                }
+            }
+            return;
+        }
+        
+        // Start volume animation
+        final float startVolume = maxVolume;
+        final float endVolume = 0f;
+        final long duration = CROSSFADE_DURATION;
+        final long startTime = System.currentTimeMillis();
+        
+        // Create a handler to update volume in intervals
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (mediaPlayer == null) return;
+                    
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    float fraction = Math.min(1f, (float) elapsed / duration);
+                    
+                    // Logarithmic volume fade sounds more natural
+                    float volume = startVolume - (float) (startVolume * Math.log10(9 * fraction + 1));
+                    // Check if mediaPlayer is valid and still playing before setting volume
+                    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        try {
+                            mediaPlayer.setVolume(volume, volume);
+                        } catch (IllegalStateException e) {
+                            Log.e(TAG, "Error setting volume in crossfade: " + e.getMessage());
+                            throw e; // Re-throw to be caught by outer catch block
+                        }
+                    }
+                    
+                    if (fraction < 1f && mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        handler.postDelayed(this, 20);
+                    } else {
+                        // Fade complete, switch players
+                        if (mediaPlayer != null) {
+                            try {
+                                mediaPlayer.stop();
+                                mediaPlayer.release();
+                            } catch (IllegalStateException e) {
+                                Log.e(TAG, "Error stopping/releasing mediaPlayer: " + e.getMessage());
+                            }
+                        }
+                        
+                        if (nextMediaPlayer != null) {
+                            mediaPlayer = nextMediaPlayer;
+                            currentTrack = nextTrack;
+                            nextMediaPlayer = null;
+                            nextTrack = null;
+                            
+                            // Start new track
+                            try {
+                                mediaPlayer.start();
+                            } catch (IllegalStateException e) {
+                                Log.e(TAG, "Error starting next mediaPlayer: " + e.getMessage());
+                                isCrossfading = false;
+                                return;
+                            }
+                            
+                            // Fade in new track
+                            final long startTimeNew = System.currentTimeMillis();
+                            final Handler newHandler = new Handler();
+                            newHandler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (mediaPlayer == null) return;
+                                    
+                                    try {
+                                        long elapsedNew = System.currentTimeMillis() - startTimeNew;
+                                        float fractionNew = Math.min(1f, (float) elapsedNew / (duration / 2));
+                                        
+                                        float volumeNew = (float) (maxVolume * Math.log10(9 * fractionNew + 1));
+                                        // Check if mediaPlayer is valid and still playing before setting volume
+                                        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                                            mediaPlayer.setVolume(volumeNew, volumeNew);
+                                        }
+                                        
+                                        if (fractionNew < 1f && mediaPlayer != null && mediaPlayer.isPlaying()) {
+                                            newHandler.postDelayed(this, 20);
+                                        } else {
+                                            // Check if mediaPlayer is still valid
+                                            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                                                mediaPlayer.setVolume(maxVolume, maxVolume);
+                                            }
+                                            isCrossfading = false;
+                                        }
+                                    } catch (IllegalStateException e) {
+                                        Log.e(TAG, "IllegalStateException in crossfade: " + e.getMessage());
+                                        isCrossfading = false;
+                                    }
+                                }
+                            }, 20);
+                            
+                            // Notify listeners
+                            if (listener != null) {
+                                listener.onTrackPlay(currentTrack);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Crossfade error: " + e.getMessage());
+                    isCrossfading = false;
+                }
+            }
+        }, 20);
+    }
+    
+    /**
+     * Get loading state for UI
+     */
+    public boolean isLoading() {
+        return isLoading || isPreparing;
+    }
+    
+    /**
+     * Implementation of MediaPlayer.OnCompletionListener
+     */
+    @Override
+    public void onCompletion(MediaPlayer mp) {
+        Log.d(TAG, "Track playback completed");
+        
+        // Make sure we only handle completion when the track is actually done
+        // and not when it's being reset or stopped manually
+        if (mp != mediaPlayer) {
+            Log.d(TAG, "Ignoring completion event from different MediaPlayer instance");
+            return;
+        }
+        
+        // Handle repeat modes properly
+        switch (repeatMode) {
+            case REPEAT_ONE:
+            // Just replay the current track
+                Log.d(TAG, "Repeat One mode: replaying current track");
+            if (currentTrack != null) {
+                    // Use a small delay to prevent rapid replay if there's an issue
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        resetMediaPlayer();
+                playTrack(currentTrack);
+                    }, 200);
+            }
+                break;
+                
+            case REPEAT_ALL:
+            // Move to next track (or first if at end)
+                Log.d(TAG, "Repeat All mode: moving to next track or looping to first");
+                if (playQueue != null && playQueue.hasNext()) {
+                    skipToNext();
+                } else if (playQueue != null && !playQueue.isQueueEmpty()) {
+                    // Reset to the first track in the queue
+                    Log.d(TAG, "Reached end of queue, looping to first track");
+                    playQueue.resetToFirst();
+            skipToNext();
+        } else {
+                    // No valid queue or no tracks, just stop playback
+                    Log.d(TAG, "No valid queue for Repeat All mode");
+                    stopPlayback();
+                }
+                break;
+                
+            default: // REPEAT_OFF
+                // Move to next track if available, otherwise stop
+                Log.d(TAG, "Repeat Off mode: moving to next track or stopping");
+                if (playQueue != null && playQueue.hasNext()) {
+            skipToNext();
+            } else {
+                // End of queue with repeat off
+                    Log.d(TAG, "End of queue reached with Repeat Off mode");
+                stopPlayback();
+        
+                    // Notify listener of track completion for UI updates
+        if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onPlaybackStateChanged(false);
+                        });
+                    }
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Play a track directly through Spotify's Web API (requires user to be logged in to Spotify)
+     * @param spotifyId Spotify track ID
+     * @param deviceId Spotify device ID
+     * @param accessToken Spotify access token
+     */
+    public void playSpotifyTrackOnDevice(String spotifyId, String deviceId, String accessToken) {
+        if (spotifyId == null || deviceId == null || accessToken == null) {
+            if (listener != null) {
+                listener.onPlaybackError("Missing Spotify playback parameters");
+            }
+            return;
+        }
+        
+        // Create a temporary track object for the currently playing track
+        Track track = new Track(
+            UUID.randomUUID().toString(),
+            "Playing on Spotify...",
+            "",
+            "",
+            "",
+            "",
+            0,
+            spotifyId
+        );
+        
+        // Store as current track
+        this.currentTrack = track;
+        
+        // First let's get track info to display proper metadata
+        spotifyHelper.getFullTrackInfo(spotifyId, new SpotifyHelper.SpotifyCallback() {
+            @Override
+            public void onSuccess(String trackInfoJson) {
+                try {
+                    // Parse track info JSON
+                    com.google.gson.JsonObject trackInfo = new com.google.gson.Gson()
+                        .fromJson(trackInfoJson, com.google.gson.JsonObject.class);
+                    
+                    // Update track with additional info if available
+                    if (trackInfo.has("name")) {
+                        track.setTitle(trackInfo.get("name").getAsString());
+                    }
+                    
+                    if (trackInfo.has("artist")) {
+                        track.setArtist(trackInfo.get("artist").getAsString());
+                    }
+                    
+                    if (trackInfo.has("album")) {
+                        track.setAlbum(trackInfo.get("album").getAsString());
+                    }
+                    
+                    if (trackInfo.has("album_image")) {
+                        track.setAlbumArt(trackInfo.get("album_image").getAsString());
+                    }
+                    
+                    if (trackInfo.has("duration_ms")) {
+                        track.setDurationMs(trackInfo.get("duration_ms").getAsInt());
+                    }
+                    
+                    // Now play the track on the Spotify device
+                    spotifyHelper.playTrackOnDevice(spotifyId, deviceId, accessToken, new SpotifyHelper.SpotifyCallback() {
+                        @Override
+                        public void onSuccess(String response) {
+                            // Track is now playing on Spotify
+                            if (listener != null) {
+                                listener.onTrackPlay(track);
+                            }
+                        }
+                        
+                        @Override
+                        public void onError(String errorMessage) {
+                            if (listener != null) {
+                                listener.onPlaybackError("Spotify playback error: " + errorMessage);
+                            }
+                        }
+                    });
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing Spotify track info", e);
+                    if (listener != null) {
+                        listener.onPlaybackError("Error parsing track info: " + e.getMessage());
+                    }
+                }
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                // Even if we can't get track info, still try to play the track
+                spotifyHelper.playTrackOnDevice(spotifyId, deviceId, accessToken, new SpotifyHelper.SpotifyCallback() {
+                    @Override
+                    public void onSuccess(String response) {
+                        if (listener != null) {
+                            listener.onTrackPlay(track);
+                        }
+                    }
+                    
+                    @Override
+                    public void onError(String error) {
+                        if (listener != null) {
+                            listener.onPlaybackError("Spotify playback error: " + error);
+                        }
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Open a Spotify track in the Spotify app or web player
+     * @param context Android context
+     * @param spotifyId Spotify track ID
+     */
+    public static void openSpotifyTrack(Context context, String spotifyId) {
+        if (context == null || spotifyId == null || spotifyId.isEmpty()) {
+            return;
+        }
+        
+        // Try to open in Spotify app first
+        try {
+            Uri uri = Uri.parse("spotify:track:" + spotifyId);
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            // If Spotify app is not installed, open in browser
+            openUrlInBrowser(context, "https://open.spotify.com/track/" + spotifyId);
+        }
+    }
+    
+    /**
+     * Open a URL in the browser
+     * @param context Android context
+     * @param url URL to open
+     */
+    public static void openUrlInBrowser(Context context, String url) {
+        if (context == null || url == null || url.isEmpty()) {
+            return;
+        }
+        
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.e(TAG, "No browser app found: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Clean up resources to prevent memory leaks
+     * Call this when the app is closing or when the service is destroyed
+     */
+    public void cleanup() {
+        // Stop any ongoing playback
+        if (isPlaying()) {
+            pause();
+        }
+        
+        // Cancel any ongoing crossfade
+        if (isCrossfading) {
+            handler.removeCallbacksAndMessages(null);
+            isCrossfading = false;
+        }
+        
+        // Cancel any scheduled seek bar updates
+        handler.removeCallbacksAndMessages(null);
+        
+        // Abandon audio focus
+        if (audioFocusGranted) {
+            abandonAudioFocus();
+        }
+        
+        // Release wake lock if held
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try {
+                wakeLock.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing wake lock: " + e.getMessage());
+            }
+        }
+        
+        // Release media player
+        if (mediaPlayer != null) {
+            try {
+                mediaPlayer.stop();
+                mediaPlayer.release();
+                mediaPlayer = null;
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing media player: " + e.getMessage());
+            }
+        }
+        
+        // Clear reference to listener
+        listener = null;
+        
+        // Clear references to media sources
+        currentTrack = null;
+        playQueue.clear();
+        history.clear();
+        
+        Log.d(TAG, "AudioPlayerHelper cleaned up successfully");
+    }
+    
+    /**
+     * Initialize the wake lock to keep the CPU running during playback
+     */
+    private void initWakeLock() {
+        if (wakeLock == null) {
+            try {
+                PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (powerManager != null) {
+                    wakeLock = powerManager.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK,
+                        "BananaMusic:PlaybackWakeLock"
+                    );
+                    wakeLock.setReferenceCounted(false);
+                    Log.d(TAG, "Wake lock initialized successfully");
+                } else {
+                    Log.e(TAG, "PowerManager service not available");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing wake lock: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Acquire wake lock to prevent playback from stopping
+     */
+    private void acquireWakeLock() {
+        // Initialize wake lock if needed
+        if (wakeLock == null) {
+            initWakeLock();
+        }
+        
+        // Acquire wake lock if it's not already held
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            try {
+                wakeLock.acquire(3 * 60 * 60 * 1000L); // Hold for 3 hours max
+                Log.d(TAG, "Wake lock acquired");
+            } catch (Exception e) {
+                Log.e(TAG, "Error acquiring wake lock: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Release the wake lock when playback stops
+     */
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try {
+                wakeLock.release();
+                Log.d(TAG, "Wake lock released");
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing wake lock: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Start playing the current track or resume paused playback
+     */
+    public void play() {
+        if (mediaPlayer != null) {
+            if (!isPlaying()) {
+                if (!requestAudioFocus()) {
+                    Log.e(TAG, "Cannot play: Audio focus request denied");
+                    return;
+                }
+                
+                try {
+                    mediaPlayer.start();
+                    
+                    // Acquire wake lock to prevent CPU sleep during playback
+                    acquireWakeLock();
+                    
+                    // Notify UI
+                    if (listener != null) {
+                        listener.onPlaybackStateChanged(true);
+                        if (currentTrack != null) {
+                            listener.onTrackPlay(currentTrack);
+                        }
+                    }
+                    
+                    // Update seek bar if available
+                    if (seekBar != null) {
+                        setupSeekBarUpdater();
+                    }
+                } catch (IllegalStateException e) {
+                    Log.e(TAG, "Error playing: " + e.getMessage());
+                    if (listener != null) {
+                        listener.onPlaybackError("Playback error: " + e.getMessage());
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Pause the current playback
+     */
+    public void pause() {
+        if (mediaPlayer != null && isPlaying()) {
+            try {
+                mediaPlayer.pause();
+                
+                // Release wake lock when playback pauses
+                releaseWakeLock();
+                
+                // Notify listener
+                if (listener != null) {
+                    listener.onPlaybackStateChanged(false);
+                }
+                
+                // Stop updating seek bar
+                updateSeekBar = false;
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error pausing: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Get the MediaPlayer instance for visualization
+     * @return Current MediaPlayer instance or null
+     */
+    public MediaPlayer getMediaPlayer() {
+        return mediaPlayer;
+    }
+    
+    /**
+     * Sets the listener for playback events
+     * @param listener The listener to notify of playback events
+     */
+    public void setListener(OnPlaybackChangedListener listener) {
+        this.listener = listener;
+    }
+    
+    /**
+     * Play the next track in the queue
+     */
+    public void playNext() {
+        if (playQueue != null) {
+            playQueue.skipToNext();
+        }
+    }
+    
+    /**
+     * Play the previous track in the queue
+     */
+    public void playPrevious() {
+        if (playQueue != null) {
+            playQueue.skipToPrevious();
+        }
+    }
+    
+    /**
+     * Toggle repeat mode between OFF, ALL, and ONE
+     * @return The new repeat mode
+     */
+    public int toggleRepeat() {
+        if (repeatMode == REPEAT_OFF) {
+            setRepeatMode(REPEAT_ALL);
+        } else if (repeatMode == REPEAT_ALL) {
+            setRepeatMode(REPEAT_ONE);
+        } else {
+            setRepeatMode(REPEAT_OFF);
+        }
+        return repeatMode;
+    }
+    
+    /**
+     * Set the crossfade duration in milliseconds
+     * @param durationMs Duration in milliseconds (0 to disable)
+     */
+    public void setCrossfadeDuration(int durationMs) {
+        // To be implemented: Set crossfade duration
+        Log.d(TAG, "Setting crossfade duration to " + durationMs + "ms");
+        // Actual implementation would go here
+    }
+    
+    /**
+     * Set up the MediaPlayer with optimized settings
+     */
+    private void setupMediaPlayer() {
+        if (mediaPlayer != null) {
+            try {
+                mediaPlayer.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing MediaPlayer: " + e.getMessage());
+            }
+            mediaPlayer = null;
+        }
+        
+        try {
+            // Create and configure a new MediaPlayer
+            mediaPlayer = new MediaPlayer();
+            
+            // Set audio attributes for proper audio focus handling
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build();
+            mediaPlayer.setAudioAttributes(audioAttributes);
+            
+            // Set up listeners
+            setupMediaPlayerListeners();
+            
+            // Enable handling of redirects for HTTP sources
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mediaPlayer.setOnMediaTimeDiscontinuityListener((mp, mts) -> 
+                    Log.d(TAG, "Media time discontinuity detected"));
+            }
+            
+            // Set wakemode to keep CPU awake during playback
+            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating MediaPlayer: " + e.getMessage());
+            if (listener != null) {
+                listener.onPlaybackError("Error initializing player: " + e.getMessage());
+            }
+        }
+    }
+
+    private int lastBufferingPercent = 0;
+
+    /**
+     * Handles track completion - calls listeners and decides what to do next
+     */
+    private void handleTrackCompletion() {
+        // Notify listeners
+        if (listener != null) {
+            // Add null check for currentTrack before notifying listeners
+            // This prevents the NullPointerException in HomeFragment
+            if (currentTrack != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onTrackChanged(currentTrack);
+                });
+            } else {
+                Log.w(TAG, "handleTrackCompletion: currentTrack is null, not notifying listeners");
+            }
+        }
+        
+        // Handle repeat modes
+        if (repeatMode == REPEAT_ONE) {
+            // Repeat the current track
+            try {
+                if (mediaPlayer != null) {
+                    mediaPlayer.seekTo(0);
+                    mediaPlayer.start();
+            }
+        } catch (Exception e) {
+                Log.e(TAG, "Error repeating track: " + e.getMessage());
+            }
+        } else if (repeatMode == REPEAT_ALL) {
+            // Move to next track (or first if at end)
+            skipToNext();
+        } else {
+            // REPEAT_OFF - move to next track if available, otherwise stop
+            if (playQueue != null && playQueue.getQueue() != null && 
+                playQueue.getCurrentIndex() < playQueue.getQueue().size() - 1) {
+                skipToNext();
+            } else {
+                // End of queue with repeat off
+                stopPlayback();
+            }
+        }
+    }
+    
+    /**
+     * Handles playback error by attempting to use fallback sources
+     * @param errorMessage Error message to display if all fallbacks fail
+     */
+    private void handlePlaybackError(String errorMessage) {
+        Log.e(TAG, "Handling playback error: " + errorMessage);
+        
+        // First try YouTube URL if available
+        if (currentTrack != null) {
+            String youtubeUrl = currentTrack.getYoutubeUrl();
+            if (youtubeUrl != null && !youtubeUrl.isEmpty()) {
+            Log.d(TAG, "Attempting YouTube fallback");
+                playWithUrl(youtubeUrl);
+            return;
+        }
+        
+        // Then try Piped URL if available
+            String pipedUrl = currentTrack.getPipedUrl();
+            if (pipedUrl != null && !pipedUrl.isEmpty()) {
+            Log.d(TAG, "Attempting Piped fallback");
+                playWithUrl(pipedUrl);
+            return;
+        }
+        
+        // Next try the offline cache if available
+            if (musicCache.isTrackCached(currentTrack.getId())) {
+            Log.d(TAG, "Attempting to play from cache after error");
+            File cachedFile = musicCache.getCachedFile(currentTrack.getId());
+            if (cachedFile != null && cachedFile.exists()) {
+                playLocalFile(cachedFile);
+                return;
+            }
+        }
+        
+        // Try alternate sources if available
+            String spotifyId = currentTrack.getSpotifyId();
+            if (spotifyId != null && !spotifyId.isEmpty()) {
+                Log.d(TAG, "Attempting Spotify fallback");
+                resolveAndPlaySpotifyTrack(currentTrack);
+                return;
+            }
+            
+            String soundCloudUrl = currentTrack.getSoundCloudUrl();
+            if (soundCloudUrl != null && !soundCloudUrl.isEmpty()) {
+                Log.d(TAG, "Attempting SoundCloud fallback");
+                // Try to resolve SoundCloud stream URL
+                soundCloudHelper.resolveStreamUrl(soundCloudUrl, new SoundCloudHelper.SoundCloudCallback() {
+                    @Override
+                    public void onSuccess(String streamUrl) {
+                        if (streamUrl != null && !streamUrl.isEmpty()) {
+                        playWithUrl(streamUrl);
+                        } else {
+                            useBackupAudio();
+                        }
+                    }
+                    
+                    @Override
+                    public void onError(String error) {
+                        useBackupAudio();
+                    }
+                });
+                return;
+            }
+            
+            // If we got here, none of the fallbacks worked
+            useBackupAudio();
+            return;
+        }
+        
+        // If currentTrack is null or all fallbacks fail, notify the listener
+        if (listener != null) {
+            listener.onPlaybackError(errorMessage);
+        }
+    }
+    
+    private void startPlayback() {
+        if (mediaPlayer != null) {
+            try {
+                // Request audio focus before starting playback
+                if (!requestAudioFocus()) {
+                    Log.e(TAG, "Cannot play track: Audio focus request denied");
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onPlaybackError("Cannot play track: Audio focus denied");
+                        });
+                    }
+                    return;
+                }
+                
+                // Start playback
+                mediaPlayer.start();
+                
+                // Update UI
+                if (listener != null && currentTrack != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onTrackPlay(currentTrack);
+                    });
+                }
+                
+                // Start updating seekbar if available
+                if (seekBar != null) {
+                    setupSeekBarUpdater();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting playback: " + e.getMessage(), e);
+                if (listener != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onPlaybackError("Error starting playback: " + e.getMessage());
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Enhanced setup of media player listeners
+     */
+    private void setupMediaPlayerListeners() {
+        if (mediaPlayer == null) return;
+        
+        // Set prepared listener
+        mediaPlayer.setOnPreparedListener(mp -> {
+            Log.d(TAG, "MediaPlayer prepared successfully");
+            
+            isPreparing = false;
+            isLoading = false;
+            
+            // Notify the UI
+            if (listener != null) {
+                listener.onBufferingEnd();
+                listener.onLoadingStateChanged(false);
+            }
+            
+            // Start playback if we have audio focus
+            if (requestAudioFocus()) {
+                try {
+                    // Acquire wake lock to prevent playback from stopping when screen is off
+                    acquireWakeLock();
+                    
+                    // Reset position and start playing
+                    mp.seekTo(0);
+                    mp.start();
+                    
+                    // Setup verification to monitor successful playback
+                    setupPlaybackVerification();
+                    
+                    // Notify listeners
+                    if (listener != null && currentTrack != null) {
+                        listener.onTrackPlay(currentTrack);
+                        listener.onPlaybackStateChanged(true);
+                    }
+                    
+                    // Setup seekbar updates if available
+                    if (seekBar != null) {
+                        setupSeekBarUpdater();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error starting playback: " + e.getMessage());
+                    onPlaybackError("Error starting playback: " + e.getMessage());
+                }
+            } else {
+                // Could not get audio focus
+                onPlaybackError("Could not get audio focus");
+            }
+        });
+        
+        // Set completion listener
+        mediaPlayer.setOnCompletionListener(mp -> {
+            Log.d(TAG, "Track playback completed");
+            
+            // Stop seekbar updates
+            if (updateSeekBarTask != null) {
+                handler.removeCallbacks(updateSeekBarTask);
+            }
+            
+            // Release wake lock
+            releaseWakeLock();
+            
+            // Notify listeners
+            if (listener != null) {
+                listener.onPlaybackStateChanged(false);
+            }
+            
+            // Automatic handling of track completion (next, repeat, etc.)
+            handleTrackCompletion();
+        });
+        
+        // Set error listener
+        mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+            // Log the error details
+            String errorMessage = getErrorMessageFromCodes(what, extra);
+            Log.e(TAG, "MediaPlayer error: " + errorMessage);
+            
+            // Reset playback state
+            isBuffering = false;
+            isPreparing = false;
+            isLoading = false;
+            
+            // Release wake lock
+            releaseWakeLock();
+            
+            // Stop seekbar updates
+            if (updateSeekBarTask != null) {
+                handler.removeCallbacks(updateSeekBarTask);
+            }
+            
+            // Notify the listener on the main thread
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (listener != null) {
+                    listener.onPlaybackError(errorMessage);
+                    listener.onBufferingEnd();
+                    listener.onLoadingStateChanged(false);
+                    listener.onPlaybackStateChanged(false);
+                }
+            });
+            
+            // For certain critical errors, try to recover by playing next track
+            if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED || 
+                what == MediaPlayer.MEDIA_ERROR_IO || 
+                what == MediaPlayer.MEDIA_ERROR_TIMED_OUT) {
+                
+                // Try to play next track if available
+                if (playQueue != null && playQueue.getQueue() != null && 
+                    playQueue.getQueue().size() > 1) {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        skipToNext();
+                    }, 1500); // Slight delay to allow error message to be seen
+                }
+            }
+            
+            return true; // Error handled
+        });
+        
+        // Set info listener
+        mediaPlayer.setOnInfoListener((mp, what, extra) -> {
+            switch (what) {
+                case MediaPlayer.MEDIA_INFO_BUFFERING_START:
+                    Log.d(TAG, "Buffering started");
+                    onBufferingStart();
+                    return true;
+                case MediaPlayer.MEDIA_INFO_BUFFERING_END:
+                    Log.d(TAG, "Buffering ended");
+                    onBufferingEnd();
+                    return true;
+                case MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START:
+                    // This can also indicate audio playback has truly started
+                    Log.d(TAG, "Media rendering started");
+                    return true;
+                default:
+                    return false;
+            }
+        });
+        
+        // Set buffering update listener
+        mediaPlayer.setOnBufferingUpdateListener((mp, percent) -> {
+            if (percent != lastBufferingPercent) {
+                lastBufferingPercent = percent;
+                if (listener != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onBufferingUpdate(percent);
+                    });
+                }
+            }
+        });
+    }
+    
+    /**
+     * Fallback method for crossfading when advanced methods aren't available
+     */
+    private void crossfadeToNextTrack() {
+        if (nextTrack == null) return;
+        
+        // Save the next track
+        Track trackToPlay = nextTrack;
+        nextTrack = null;
+        
+        // Start volume animation for current track
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            final float startVolume = maxVolume;
+            final float endVolume = 0f;
+            final long duration = CROSSFADE_DURATION;
+            final long startTime = System.currentTimeMillis();
+            
+            final Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (mediaPlayer == null) return;
+                        
+                        long elapsed = System.currentTimeMillis() - startTime;
+                        float fraction = Math.min(1f, (float) elapsed / duration);
+                        
+                        // Logarithmic volume fade sounds more natural
+                        float volume = startVolume - (float) (startVolume * Math.log10(9 * fraction + 1));
+                        mediaPlayer.setVolume(volume, volume);
+                        
+                        if (fraction < 1f && mediaPlayer.isPlaying()) {
+                            handler.postDelayed(this, 20);
+                        } else {
+                            // Release current player 
+                            releaseMediaPlayer();
+                            
+                            // Play the next track directly
+                            playTrack(trackToPlay);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Simple crossfade error: " + e.getMessage());
+                        isCrossfading = false;
+                        
+                        // Fallback if crossfade fails
+                        releaseMediaPlayer();
+                        playTrack(trackToPlay);
+                    }
+                }
+            }, 20);
+        } else {
+            // No need to crossfade, just play
+            playTrack(trackToPlay);
+        }
+    }
+
+    /**
+     * Play audio from a content URI
+     * 
+     * @param uri The content URI to play
+     * @param track Track information
+     */
+    public void playWithContentUri(Uri uri, Track track) {
+        try {
+            // Reset any existing MediaPlayer
+            if (mediaPlayer == null) {
+                setupMediaPlayer();
+            } else if (mediaPlayer.isPlaying()) {
+                // Stop current playback gracefully
+                try {
+                    mediaPlayer.stop();
+                } catch (IllegalStateException e) {
+                    Log.e(TAG, "Error stopping playback: " + e.getMessage());
+                }
+                mediaPlayer.reset();
+            } else {
+                mediaPlayer.reset();
+            }
+            
+            Log.d(TAG, "Attempting to play from content URI: " + uri);
+            
+            // Request audio focus before starting playback
+            if (!requestAudioFocus()) {
+                Log.e(TAG, "Cannot play track: Audio focus request denied");
+                if (listener != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onPlaybackError("Cannot play track: Audio focus denied");
+                    });
+                }
+                return;
+            }
+            
+            // Update loading state
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onBufferingStart();
+                    listener.onLoadingStateChanged(true);
+                });
+            }
+            
+            // Set up current track
+            currentTrack = track;
+            
+            // Set the data source using the URI
+            mediaPlayer.setDataSource(context, uri);
+            
+            // Prepare and start
+            mediaPlayer.setOnPreparedListener(mp -> {
+                Log.d(TAG, "MediaPlayer prepared for content URI");
+                
+                try {
+                    mp.start();
+                    
+                    // Update UI
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onTrackPlay(track);
+                            listener.onBufferingEnd();
+                            listener.onLoadingStateChanged(false);
+                        });
+                    }
+                    
+                    // Start updating seekbar if available
+                    if (seekBar != null) {
+                        setupSeekBarUpdater();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error starting playback: " + e.getMessage(), e);
+                    if (listener != null) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            listener.onPlaybackError("Error starting playback: " + e.getMessage());
+                            listener.onBufferingEnd();
+                            listener.onLoadingStateChanged(false);
+                        });
+                    }
+                }
+            });
+            
+            // Set error listener for advanced error handling
+            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                String errorMessage;
+                switch (what) {
+                    case MediaPlayer.MEDIA_ERROR_UNSUPPORTED:
+                        errorMessage = "Media format not supported";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_MALFORMED:
+                        errorMessage = "Media data is malformed";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_IO:
+                        errorMessage = "I/O error occurred";
+                        break;
+                    case MediaPlayer.MEDIA_ERROR_TIMED_OUT:
+                        errorMessage = "Operation timed out";
+                        break;
+                    default:
+                        errorMessage = "MediaPlayer error: " + what + ", " + extra;
+                }
+                
+                Log.e(TAG, errorMessage);
+                
+                if (listener != null) {
+                    final String finalErrorMessage = errorMessage;
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        listener.onPlaybackError(finalErrorMessage);
+                        listener.onBufferingEnd();
+                        listener.onLoadingStateChanged(false);
+                    });
+                }
+                return true;
+            });
+            
+            // Set completion listener
+            mediaPlayer.setOnCompletionListener(this);
+            
+            // Prepare asynchronously
+            mediaPlayer.prepareAsync();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error playing from content URI: " + e.getMessage(), e);
+            if (listener != null) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    listener.onPlaybackError("Error playing file: " + e.getMessage());
+                    listener.onBufferingEnd();
+                    listener.onLoadingStateChanged(false);
+                });
+            }
+        }
+    }
+
+    /**
+     * Get current track position in milliseconds
+     * @return current position in milliseconds, or 0 if media player is null
+     */
+    public int getCurrentPosition() {
+        if (mediaPlayer != null) {
+            try {
+                // Only call getCurrentPosition if the player is prepared and not in an error state
+                if (mediaPlayer.isPlaying() || isPreparing) {
+                    return mediaPlayer.getCurrentPosition();
+                }
+                return 0;
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error getting current position", e);
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Get total duration of the current track in milliseconds
+     * @return Total duration in milliseconds, or 0 if no media is playing
+     */
+    public int getDuration() {
+        if (mediaPlayer != null) {
+            try {
+                // Only call getDuration if the player is prepared and not in an error state
+                if (mediaPlayer.isPlaying() || isPreparing) {
+                    return mediaPlayer.getDuration();
+                }
+                // If we have a current track but player isn't ready, try to get duration from track
+                if (currentTrack != null) {
+                    return (int) currentTrack.getDurationMs();
+                }
+                return 0;
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error getting duration", e);
+                // If we have a current track, try to get duration from track
+                if (currentTrack != null) {
+                    return (int) currentTrack.getDurationMs();
+                }
+                return 0;
+            }
+        }
+        // If media player is null but we have current track info
+        if (currentTrack != null) {
+            return (int) currentTrack.getDurationMs();
+        }
+        return 0;
+    }
+    
+    /**
+     * Get the current buffered position in milliseconds
+     * @return buffered position in milliseconds, or 0 if media player is null
+     */
+    public int getBufferedPosition() {
+        if (mediaPlayer != null && isBuffering) {
+            try {
+                // Most streaming implementations will buffer around 15% ahead
+                // This is an estimation since Android doesn't have a direct API for this
+                int duration = mediaPlayer.getDuration();
+                int currentPosition = mediaPlayer.getCurrentPosition();
+                
+                // Calculate an estimated buffer position (15% ahead of current position)
+                int bufferEstimate = currentPosition + (int)(duration * 0.15);
+                
+                // Don't exceed the total duration
+                return Math.min(bufferEstimate, duration);
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error getting buffered position: " + e.getMessage());
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private void onBufferingStart() {
+        isBuffering = true;
+        if (listener != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                listener.onBufferingStart();
+            });
+        }
+    }
+    
+    private void onBufferingEnd() {
+        isBuffering = false;
+        if (listener != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                listener.onBufferingEnd();
+            });
+        }
+    }
+
+    /**
+     * Safely reset the media player state
+     */
+    private void resetMediaPlayer() {
+        if (mediaPlayer != null) {
+            try {
+                // Stop playback if it's playing
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+                
+                // Release resources associated with the MediaPlayer
+                mediaPlayer.reset();
+                
+                // Release wake lock
+                releaseWakeLock();
+                
+                // Stop updating seekbar
+                if (updateSeekBarTask != null) {
+                    handler.removeCallbacks(updateSeekBarTask);
+                }
+                
+                // Reset state variables
+                isBuffering = false;
+                isPreparing = false;
+                isLoading = false;
+                
+                Log.d(TAG, "MediaPlayer reset successfully");
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error resetting MediaPlayer: " + e.getMessage());
+                
+                // If we can't reset, release and recreate
+                try {
+                    mediaPlayer.release();
+                } catch (Exception ex) {
+                    Log.e(TAG, "Error releasing MediaPlayer: " + ex.getMessage());
+                }
+                
+                // Create a new media player
+                setupMediaPlayer();
+            }
+        } else {
+            // Create media player if it doesn't exist
+            setupMediaPlayer();
+        }
+    }
+
+    /**
+     * Safely attempt to play a track via search with improved error handling
+     */
+    private void attemptToPlayViaSearch(Track track) {
+        if (track == null) {
+            useBackupAudio();
+            return;
+        }
+        
+        // Make sure we have something to search for
+        if (track.getTitle() == null || track.getTitle().isEmpty()) {
+            useBackupAudio();
+            return;
+        }
+        
+        Log.d(TAG, "Attempting to play via search: " + track.getTitle());
+        
+        // Check network availability first
+        if (!isNetworkAvailable()) {
+            Log.e(TAG, "Network not available for search");
+            onPlaybackError("Network connection required for search");
+            return;
+        }
+        
+        // Build a search query with title and artist if available
+        final String query;
+        if (track.getArtist() != null && !track.getArtist().isEmpty()) {
+            query = track.getTitle() + " " + track.getArtist();
+        } else {
+            query = track.getTitle();
+        }
+        
+        // Use SpotifyHelper for searching as an alternative source
+        if (spotifyHelper != null) {
+            // Show loading state
+            if (listener != null) {
+                listener.onLoadingStateChanged(true);
+                listener.onBufferingStart();
+            }
+            
+            // Use the more robust search method with type parameter and retries
+            spotifyHelper.searchTracks(query, "track", new SpotifyHelper.SpotifyCallback() {
+                @Override
+                public void onSuccess(String result) {
+                    try {
+                        JSONObject jsonResponse = new JSONObject(result);
+                        
+                        if (jsonResponse.has("tracks") && jsonResponse.getJSONObject("tracks").has("items")) {
+                            JSONArray items = jsonResponse.getJSONObject("tracks").getJSONArray("items");
+                            
+                            if (items.length() > 0) {
+                                Log.d(TAG, "Found " + items.length() + " search results");
+                                
+                                // Try to find a result with a preview URL first
+                                JSONObject bestMatch = null;
+                                String previewUrl = null;
+                                
+                                // Look through up to 5 results to find one with a preview URL
+                                for (int i = 0; i < Math.min(items.length(), 5); i++) {
+                                    JSONObject trackJson = items.getJSONObject(i);
+                                    String currentPreviewUrl = trackJson.optString("preview_url", "");
+                                    
+                                    if (currentPreviewUrl != null && !currentPreviewUrl.isEmpty()) {
+                                        bestMatch = trackJson;
+                                        previewUrl = currentPreviewUrl;
+                                        break;
+                                    }
+                                    
+                                    // If this is the first item and we don't have a match yet, keep it as fallback
+                                    if (bestMatch == null && i == 0) {
+                                        bestMatch = trackJson;
+                                    }
+                                }
+                                
+                                // If we didn't find any track with a preview URL, just use the first result
+                                if (bestMatch == null && items.length() > 0) {
+                                    bestMatch = items.getJSONObject(0);
+                                }
+                                
+                                if (bestMatch != null) {
+                                    // Get basic info from the track
+                                    String id = bestMatch.optString("id", "");
+                                    
+                                    // If we already found a preview URL, use it
+                                    if (previewUrl != null && !previewUrl.isEmpty()) {
+                                        Log.d(TAG, "Found preview URL from search results: " + previewUrl);
+                                        
+                                        // Update track info
+                                        updateTrackFromJson(track, bestMatch);
+                                        
+                                        // Set the preview URL and play
+                                        track.setPreviewUrl(previewUrl);
+                                        playWithUrl(previewUrl);
+                                    } else if (id != null && !id.isEmpty()) {
+                                        // If no preview URL but we have an ID, set it and try to get a preview URL
+                                        Log.d(TAG, "No preview URL in search results, trying to get preview with ID: " + id);
+                                        
+                                        // Update track info
+                                        updateTrackFromJson(track, bestMatch);
+                                        track.setSpotifyId(id);
+                                        
+                                        // Try to get the preview URL for this track ID
+                                        spotifyHelper.getTrackPreviewUrl(id, new SpotifyHelper.SpotifyCallback() {
+                                            @Override
+                                            public void onSuccess(String previewUrl) {
+                                                Log.d(TAG, "Found preview URL from Spotify: " + previewUrl);
+                                                if (previewUrl != null && !previewUrl.isEmpty()) {
+                                                    track.setPreviewUrl(previewUrl);
+                                                    playWithUrl(previewUrl);
+                                                } else {
+                                                    // If we couldn't get a preview URL but have updated track info,
+                                                    // try Spotify playback with the ID
+                                                    resolveAndPlaySpotifyTrack(track);
+                                                }
+                                            }
+                                            
+                                            @Override
+                                            public void onError(String errorMessage) {
+                                                Log.e(TAG, "Error getting preview URL: " + errorMessage);
+                                                
+                                                // Try Spotify playback with the ID
+                                                resolveAndPlaySpotifyTrack(track);
+                                            }
+                                        });
+                                    } else {
+                                        Log.e(TAG, "No ID or preview URL found in search results");
+                                        useBackupAudio();
+                                    }
+                                } else {
+                                    Log.e(TAG, "No valid track found in search results");
+                                    useBackupAudio();
+                                }
+                            } else {
+                                Log.e(TAG, "Empty search results array");
+                                useBackupAudio();
+                            }
+                        } else {
+                            Log.e(TAG, "Invalid search results format");
+                            useBackupAudio();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing Spotify search results: " + e.getMessage());
+                        useBackupAudio();
+                    } finally {
+                        // Ensure loading state is reset
+                        if (listener != null) {
+                            listener.onLoadingStateChanged(false);
+                            listener.onBufferingEnd();
+                        }
+                    }
+                }
+                
+                @Override
+                public void onError(String errorMessage) {
+                    Log.e(TAG, "Spotify search error: " + errorMessage);
+                    
+                    // Reset loading state
+                    if (listener != null) {
+                        listener.onLoadingStateChanged(false);
+                        listener.onBufferingEnd();
+                    }
+                    
+                    // Check if device is offline
+                    if (!isNetworkAvailable()) {
+                        onPlaybackError("Network connection required");
+                    } else {
+                        useBackupAudio();
+                    }
+                }
+            });
+        } else {
+            // If no SpotifyHelper, just fall back to error message
+            useBackupAudio();
+        }
+    }
+    
+    /**
+     * Helper method to update track info from JSON
+     */
+    private void updateTrackFromJson(Track track, JSONObject trackJson) {
+        try {
+            // Update track with fetched information
+            if (trackJson.has("name")) {
+                track.setTitle(trackJson.getString("name"));
+            }
+            
+            if (trackJson.has("artists") && trackJson.getJSONArray("artists").length() > 0) {
+                JSONObject artist = trackJson.getJSONArray("artists").getJSONObject(0);
+                if (artist.has("name")) {
+                    track.setArtist(artist.getString("name"));
+                }
+            }
+            
+            if (trackJson.has("album")) {
+                JSONObject album = trackJson.getJSONObject("album");
+                
+                if (album.has("name")) {
+                    track.setAlbum(album.getString("name"));
+                }
+                
+                if (album.has("images") && album.getJSONArray("images").length() > 0) {
+                    JSONObject image = album.getJSONArray("images").getJSONObject(0);
+                    if (image.has("url")) {
+                        track.setAlbumArt(image.getString("url"));
+                        track.setAlbumArtUrl(image.getString("url"));
+                    }
+                }
+            }
+            
+            if (trackJson.has("duration_ms")) {
+                track.setDurationMs(trackJson.getLong("duration_ms"));
+            }
+            
+            if (trackJson.has("preview_url") && !trackJson.isNull("preview_url")) {
+                track.setPreviewUrl(trackJson.getString("preview_url"));
+            }
+            
+            if (trackJson.has("id")) {
+                track.setSpotifyId(trackJson.getString("id"));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating track from JSON: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Check if network is available
+     */
+    private boolean isNetworkAvailable() {
+        try {
+            ConnectivityManager connectivityManager = 
+                    (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager == null) return false;
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network network = connectivityManager.getActiveNetwork();
+                if (network == null) return false;
+                
+                NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+                return capabilities != null && (
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                );
+            } else {
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking network availability: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Configure MediaPlayer optimally for streaming from Spotify
+     * @param mediaPlayer The MediaPlayer instance to configure
+     * @param url The streaming URL
+     */
+    private void configureForSpotifyStreaming(MediaPlayer mediaPlayer, String url) {
+        if (url == null || mediaPlayer == null) return;
+        
+        // Check if this is a Spotify URL
+        boolean isSpotifyUrl = url.contains("spotify.com") || 
+                              (currentTrack != null && currentTrack.getSource() != null && 
+                               currentTrack.getSource().equals(Track.SOURCE_SPOTIFY));
+        
+        if (isSpotifyUrl) {
+            Log.d(TAG, "Configuring MediaPlayer for Spotify streaming");
+            
+            try {
+                // Set optimal buffer size for streaming
+                mediaPlayer.setOnBufferingUpdateListener((mp, percent) -> {
+                    // Log buffer updates less frequently to avoid log spam
+                    if (percent % 10 == 0 || percent == 100) {
+                        Log.d(TAG, "Buffering: " + percent + "%");
+                    }
+                    
+                    if (listener != null) {
+                        listener.onBufferingUpdate(percent);
+                    }
+                });
+                
+                // Set audio streaming flags if available
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    // Use higher buffer size and prioritize streaming playback
+                    mediaPlayer.setAudioAttributes(
+                        new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    );
+                }
+                
+                // Set high buffer size for better streaming performance
+                // Note: These methods are not officially documented but can help with streaming
+                try {
+                    Class<?> metadataClass = Class.forName("android.media.MediaPlayer");
+                    
+                    // Try to set a larger buffer size (8MB)
+                    Method setBufferSizeMethod = metadataClass.getMethod("setBufferSize", int.class);
+                    setBufferSizeMethod.invoke(mediaPlayer, 8 * 1024 * 1024);
+                    
+                    Log.d(TAG, "Successfully set larger buffer size for Spotify streaming");
+                } catch (Exception e) {
+                    // This is expected on most devices, these methods are not official API
+                    Log.d(TAG, "Could not set buffer size (expected): " + e.getMessage());
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error configuring for Spotify streaming: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Monitor playback progress to verify successful playback
+     */
+    private void setupPlaybackVerification() {
+        if (mediaPlayer == null) return;
+        
+        // Cancel any existing verification
+        if (handler != null) {
+            handler.removeCallbacks(playbackVerificationRunnable);
+        }
+        
+        // Create a new verification runnable
+        playbackVerificationRunnable = new Runnable() {
+            // Track state for verification
+            private int lastPosition = 0;
+            private int stuckCounter = 0;
+            private int bufferingCounter = 0;
+            private boolean hasStartedPlaying = false;
+            
+            @Override
+            public void run() {
+                // Only run if we have a media player and track
+                if (mediaPlayer != null && currentTrack != null) {
+                    try {
+                        // Only check if the player is supposed to be playing
+                        if (mediaPlayer.isPlaying()) {
+                            int currentPosition = mediaPlayer.getCurrentPosition();
+                            
+                            // Track that playback has started successfully
+                            if (!hasStartedPlaying && currentPosition > 0) {
+                                hasStartedPlaying = true;
+                                Log.d(TAG, "Playback has successfully started");
+                                
+                                // Notify listeners that playback has stabilized
+                                if (listener != null) {
+                                    listener.onBufferingEnd();
+                                    listener.onLoadingStateChanged(false);
+                                }
+                                
+                                // Reset counters once playing successfully
+                                stuckCounter = 0;
+                                bufferingCounter = 0;
+                            }
+                            
+                            // Check if playback is advancing
+                            if (currentPosition == lastPosition && hasStartedPlaying) {
+                                stuckCounter++;
+                                Log.d(TAG, "Playback position stuck at " + currentPosition + " for " + stuckCounter + " checks");
+                                
+                                // After several checks, consider playback stuck
+                                if (stuckCounter >= 5) {
+                                    Log.w(TAG, "Playback appears stuck, attempting recovery");
+                                    
+                                    // Try to unstick by seeking slightly forward
+                                    try {
+                                        int seekTarget = currentPosition + 500; // 500ms forward
+                                        if (seekTarget < mediaPlayer.getDuration()) {
+                                            mediaPlayer.seekTo(seekTarget);
+                                            Log.d(TAG, "Seeking to " + seekTarget + " to recover from stuck playback");
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Error while attempting to recover from stuck playback: " + e.getMessage());
+                                    }
+                                    
+                                    // Reset the counter after recovery attempt
+                                    stuckCounter = 0;
+                                }
+                            } else {
+                                // Reset counter if position changes
+                                stuckCounter = 0;
+                            }
+                            
+                            // Update last position
+                            lastPosition = currentPosition;
+                        } else if (isBuffering) {
+                            // Track buffering duration
+                            bufferingCounter++;
+                            Log.d(TAG, "Buffering state active for " + bufferingCounter + " checks");
+                            
+                            // If buffering too long, try to recover
+                            if (bufferingCounter >= 10) { // Approximately 5 seconds
+                                Log.w(TAG, "Buffering too long, attempting recovery");
+                                
+                                // Try resetting and retrying
+                                if (currentTrack != null) {
+                                    // Try to restart playback
+                                    playTrack(currentTrack);
+                                    Log.d(TAG, "Restarted track due to excessive buffering");
+                                }
+                                
+                                // Reset counter after recovery attempt
+                                bufferingCounter = 0;
+                            }
+                        } else {
+                            // Not playing or buffering - reset buffering counter
+                            bufferingCounter = 0;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error monitoring playback: " + e.getMessage());
+                    }
+                }
+                
+                // Schedule next check
+                handler.postDelayed(this, 500); // Check every 500ms
+            }
+        };
+        
+        // Start verification monitoring
+        handler.postDelayed(playbackVerificationRunnable, 1000); // Start after 1 second
+    }
+    
+    // Runnable for playback verification
+    private Runnable playbackVerificationRunnable;
+    
+    /**
+     * Get readable error message for media player errors
+     */
+    private String getErrorMessageFromCodes(int what, int extra) {
+        String errorType;
+        String errorDetail = "Unknown";
+        
+        // Handle specific error codes
+        switch (what) {
+            case MediaPlayer.MEDIA_ERROR_IO:
+                errorType = "I/O Error";
+                break;
+            case MediaPlayer.MEDIA_ERROR_MALFORMED:
+                errorType = "Malformed Media";
+                break;
+            case MediaPlayer.MEDIA_ERROR_UNSUPPORTED:
+                errorType = "Unsupported Format";
+                break;
+            case MediaPlayer.MEDIA_ERROR_TIMED_OUT:
+                errorType = "Timeout";
+                break;
+            case MediaPlayer.MEDIA_ERROR_SERVER_DIED:
+                errorType = "Server Died";
+                break;
+            case -38:  // Common error for resource not found
+                errorType = "Resource Not Found";
+                break;
+            case -11:  // Error preparing/setting data source
+                errorType = "Invalid Source";
+                break;
+            case -2147483648: // Generic error (MIN_INT)
+                errorType = "Generic Error";
+                break;
+            default:
+                errorType = "Error Code " + what;
+        }
+        
+        switch (extra) {
+            case MediaPlayer.MEDIA_ERROR_IO:
+                errorDetail = "I/O Error";
+                break;
+            case MediaPlayer.MEDIA_ERROR_MALFORMED:
+                errorDetail = "Malformed Media";
+                break;
+            case MediaPlayer.MEDIA_ERROR_UNSUPPORTED:
+                errorDetail = "Unsupported Format";
+                break;
+            case MediaPlayer.MEDIA_ERROR_TIMED_OUT:
+                errorDetail = "Timeout";
+                break;
+            case 900:  // Resource temporarily unavailable
+                errorDetail = "Resource Unavailable";
+                break;
+            case 800:  // Network related issues
+                errorDetail = "Network Error";
+                break;
+            default:
+                errorDetail = "Extra " + extra;
+        }
+        
+        return errorType + " - " + errorDetail;
+    }
+} 

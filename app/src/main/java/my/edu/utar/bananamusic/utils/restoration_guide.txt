@@ -1,0 +1,74 @@
+STEP-BY-STEP GUIDE TO FIX AudioPlayerHelper.java
+
+1. RESTORE THE ORIGINAL FILE (pick ONE option)
+   
+   Option A - If you have git:
+   ```
+   git checkout -- app/src/main/java/my/edu/utar/bananamusic/utils/AudioPlayerHelper.java
+   ```
+   
+   Option B - If you have a backup copy (.bak file):
+   ```
+   Copy-Item "app/src/main/java/my/edu/utar/bananamusic/utils/AudioPlayerHelper.java.bak" -Destination "app/src/main/java/my/edu/utar/bananamusic/utils/AudioPlayerHelper.java" -Force
+   ```
+   
+   Option C - If you have neither:
+   - Create a new file in Android Studio named AudioPlayerHelper.java
+   - Get the content from a teammate or from your own backups
+   - Make sure to save it with UTF-8 encoding
+
+2. FIX THE DUPLICATE METHOD
+
+   After restoring the original file:
+   
+   a) Find the FIRST isNetworkAvailable() method (around line 1127)
+   b) Replace it with this improved version:
+   
+   ```java
+   /**
+    * Check if any network is available
+    */
+   private boolean isNetworkAvailable() {
+       try {
+           ConnectivityManager connectivityManager = 
+                   (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+           if (connectivityManager == null) return false;
+           
+           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+               Network network = connectivityManager.getActiveNetwork();
+               if (network == null) return false;
+               
+               NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+               return capabilities != null && (
+                   capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                   capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                   capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+               );
+           } else {
+               NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+               return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+           }
+       } catch (Exception e) {
+           Log.e(TAG, "Error checking network availability: " + e.getMessage());
+           return false;
+       }
+   }
+   ```
+   
+   c) Find the SECOND isNetworkAvailable() method (around line 4012)
+   d) DELETE the entire second method INCLUDING its JavaDoc comment
+
+3. COMPILE AND TEST
+   
+   Run the build to make sure it compiles:
+   ```
+   ./gradlew compileDebugJavaWithJavac
+   ```
+
+4. TROUBLESHOOTING
+   
+   If you still have issues:
+   - Check that you completely removed the duplicate method around line 4012
+   - Verify that the file is saved with UTF-8 encoding
+   - Try restarting Android Studio
+   - Re-import the project 

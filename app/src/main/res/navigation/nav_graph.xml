@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="my.edu.utar.bananamusic.ui.home.HomeRedesignedFragment"
+        android:label="Home"
+        tools:layout="@layout/fragment_home">
+        <!-- Add navigation actions -->
+        <action
+            android:id="@+id/action_homeFragment_to_playlistDetailsFragment"
+            app:destination="@id/playlistDetailFragment" />
+        <action
+            android:id="@+id/action_navigation_home_to_playlistDetailFragment"
+            app:destination="@id/playlistDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/searchFragment"
+        android:name="my.edu.utar.bananamusic.ui.search.SearchFragment"
+        android:label="Search"
+        tools:layout="@layout/fragment_search">
+        <!-- Add any actions or arguments as needed -->
+    </fragment>
+
+    <fragment
+        android:id="@+id/libraryFragment"
+        android:name="my.edu.utar.bananamusic.ui.library.LibraryFragment"
+        android:label="Library"
+        tools:layout="@layout/fragment_library">
+        <action
+            android:id="@+id/action_libraryFragment_to_nowPlayingFragment"
+            app:destination="@id/nowPlayingFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="my.edu.utar.bananamusic.ui.profile.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile">
+        <!-- Add any actions or arguments as needed -->
+    </fragment>
+    
+    <fragment
+        android:id="@+id/queueFragment"
+        android:name="my.edu.utar.bananamusic.ui.QueueFragment"
+        android:label="Queue"
+        tools:layout="@layout/fragment_queue">
+    </fragment>
+    
+    <fragment
+        android:id="@+id/nowPlayingFragment"
+        android:name="my.edu.utar.bananamusic.ui.player.NowPlayingFragment"
+        android:label="Now Playing"
+        tools:layout="@layout/fragment_now_playing">
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_mood_recommendations"
+        android:name="my.edu.utar.bananamusic.ui.recommendations.MoodRecommendationsFragment"
+        android:label="Mood Recommendations"
+        tools:layout="@layout/fragment_mood_recommendations" />
+
+    <!-- Add the playlist detail fragment definition -->
+    <fragment
+        android:id="@+id/playlistDetailFragment"
+        android:name="my.edu.utar.bananamusic.ui.playlist.PlaylistDetailFragment"
+        android:label="Playlist Details"
+        tools:layout="@layout/fragment_playlist_detail">
+        <argument
+            android:name="playlistId"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="playlistName"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="playlistCoverUrl"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="playlistSource"
+            app:argType="string"
+            app:nullable="true" />
+    </fragment>
+
+</navigation>

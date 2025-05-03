@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground"
+    android:fitsSystemWindows="true"
+    tools:context=".MainActivity">
+
+    <!-- Main Navigation Fragment -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="@dimen/mini_player_height"
+        app:defaultNavHost="true"
+        app:navGraph="@navigation/nav_graph" />
+
+    <!-- Mini Player (visible when music is playing) -->
+    <my.edu.utar.bananamusic.ui.player.MiniPlayerView
+        android:id="@+id/mini_player_view"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/mini_player_height"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="@dimen/bottom_nav_height"
+        android:background="@drawable/miniplayer_background"
+        android:elevation="@dimen/mini_player_elevation"
+        android:visibility="gone" />
+
+    <!-- Fullscreen Now Playing Fragment (initially hidden) -->
+    <FrameLayout
+        android:id="@+id/fragment_container_now_playing"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/colorBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        android:elevation="24dp"
+        android:fitsSystemWindows="true" />
+
+    <!-- Bottom Navigation Bar -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/bottom_nav_height"
+        android:layout_gravity="bottom"
+        android:background="@color/colorHighlight"
+        android:elevation="8dp"
+        app:itemIconTint="@color/bottom_nav_item_color"
+        app:itemTextColor="@color/bottom_nav_item_color"
+        app:menu="@menu/bottom_navigation_menu" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

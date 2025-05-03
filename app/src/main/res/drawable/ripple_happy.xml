@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/mood_happy_ripple">
+    <item android:id="@android:id/background">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="32dp"
+                android:startColor="@color/mood_happy_light"
+                android:endColor="@color/mood_happy_primary" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/mood_happy_dark" />
+        </shape>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="@color/mood_happy_ripple" />
+        </shape>
+    </item>
+</ripple> 

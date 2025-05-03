@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Repeat mode options -->
+    <string-array name="repeat_mode_entries">
+        <item>No Repeat</item>
+        <item>Repeat All</item>
+        <item>Repeat One</item>
+    </string-array>
+    
+    <string-array name="repeat_mode_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    
+    <!-- Recommendation source options -->
+    <string-array name="recommendation_source_entries">
+        <item>Similar Tracks</item>
+        <item>Same Artist</item>
+        <item>Same Genre</item>
+        <item>Popular Tracks</item>
+        <item>Personal Recommendations</item>
+    </string-array>
+    
+    <string-array name="recommendation_source_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+    
+    <!-- Audio quality options -->
+    <string-array name="audio_quality_entries">
+        <item>Low (64kbps)</item>
+        <item>Normal (128kbps)</item>
+        <item>High (256kbps)</item>
+        <item>Very High (320kbps)</item>
+    </string-array>
+    
+    <string-array name="audio_quality_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+</resources> 

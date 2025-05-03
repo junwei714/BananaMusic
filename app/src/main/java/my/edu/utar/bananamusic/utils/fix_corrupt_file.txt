@@ -1,0 +1,59 @@
+INSTRUCTIONS FOR FIXING CORRUPTED AudioPlayerHelper.java FILE
+
+The file has been corrupted due to encoding issues when trying to fix the duplicate method. Follow these steps to resolve it:
+
+1. BACKUP YOUR ORIGINAL FILE
+   - First, make a backup copy of your original AudioPlayerHelper.java file (if you haven't already)
+   - In Android Studio, right-click on AudioPlayerHelper.java and select Copy
+   - Right-click on the utils folder and select Paste, then name it AudioPlayerHelper.java.bak
+
+2. GET A CLEAN COPY
+   - If you have a version control system (Git), retrieve the latest clean version with:
+     git checkout -- app/src/main/java/my/edu/utar/bananamusic/utils/AudioPlayerHelper.java
+
+   - If you don't have version control:
+     a) Create a new file named AudioPlayerHelper.java
+     b) Copy all the code from your backed-up version or from a teammate's version
+     c) Save it with UTF-8 encoding
+
+3. FIX THE DUPLICATE METHOD
+   - Once you have a clean copy, find and remove the duplicate isNetworkAvailable() method around line 4012
+   - Keep only the first implementation (around line 1127)
+   - Update the first implementation to include the Android M+ compatibility code:
+
+```java
+/**
+ * Check if any network is available
+ */
+private boolean isNetworkAvailable() {
+    try {
+        ConnectivityManager connectivityManager = 
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return false;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Network network = connectivityManager.getActiveNetwork();
+            if (network == null) return false;
+            
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            return capabilities != null && (
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            );
+        } else {
+            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        }
+    } catch (Exception e) {
+        Log.e(TAG, "Error checking network availability: " + e.getMessage());
+        return false;
+    }
+}
+```
+
+4. COMPILE AND TEST
+   - After making these changes, run ./gradlew compileDebugJavaWithJavac to verify that the duplicate method error is resolved
+   - Test the app to make sure network functionality works correctly
+
+If you continue to have issues, consider creating a new file from scratch and copying sections from your backup, ensuring UTF-8 encoding is preserved. 

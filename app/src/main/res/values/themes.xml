@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.BananaMusic" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorSecondaryVariant">@color/colorAccent</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        
+        <!-- Modified performance optimizations - remove problematic ones -->
+        <item name="android:windowBackground">@color/colorPrimaryDark</item>
+        <!-- <item name="android:windowDisablePreview">true</item> --> <!-- Can cause issues -->
+        <item name="android:windowActivityTransitions">false</item>
+        <item name="android:hardwareAccelerated">true</item>
+        <item name="android:animateLayoutChanges">false</item>
+        
+        <!-- Disable Material's dynamic color system for performance -->
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
+        
+        <!-- Disable unnecessary material animations -->
+        <item name="android:windowEnterAnimation">@null</item>
+        <item name="android:windowExitAnimation">@null</item>
+    </style>
+
+    <style name="Theme.BananaMusic.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <!-- Removing fullscreen attribute to allow system bars to show -->
+        <!-- <item name="android:windowFullscreen">true</item> -->
+        <item name="android:windowBackground">@color/colorPrimaryDark</item>
+        <!-- <item name="android:windowDisablePreview">true</item> --> <!-- Can cause issues -->
+        <item name="android:hardwareAccelerated">true</item>
+    </style>
+    
+    <!-- Optimized Button style for better touch response -->
+    <style name="Widget.BananaMusic.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:minWidth">88dp</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+        <item name="android:textSize">14sp</item>
+        <item name="backgroundTint">@color/colorPrimary</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+    
+    <!-- Optimized Card style for better rendering -->
+    <style name="Widget.BananaMusic.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardElevation">1dp</item>
+        <item name="cardMaxElevation">1dp</item>
+        <item name="cardPreventCornerOverlap">false</item>
+        <item name="cardUseCompatPadding">false</item>
+        <item name="contentPadding">0dp</item>
+    </style>
+    
+    <!-- Bottom Navigation Style -->
+    <style name="Widget.BananaMusic.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="itemIconTint">@color/bottom_nav_color_selector</item>
+        <item name="itemTextColor">@color/bottom_nav_color_selector</item>
+        <item name="itemRippleColor">@color/colorAccent</item>
+        <item name="itemActiveIndicatorStyle">@null</item>
+        <item name="labelVisibilityMode">unlabeled</item>
+        <item name="backgroundTint">@color/colorSurface</item>
+        <item name="elevation">24dp</item>
+        <!-- Higher elevation to ensure visibility -->
+        <item name="android:elevation">24dp</item>
+        <item name="android:translationZ">24dp</item>
+        <!-- Keep this view above all other views -->
+        <item name="android:stateListAnimator">@null</item>
+        <!-- Icon size -->
+        <item name="itemIconSize">24dp</item>
+        <!-- Add rounded corners -->
+        <item name="android:background">@drawable/bottom_nav_background</item>
+        <!-- Adjust height -->
+        <item name="android:layout_height">48dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+    
+    <!-- Text style for active bottom navigation items -->
+    <style name="TextAppearance.BananaMusic.BottomNavigationView.Active" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/colorAccent</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    
+    <!-- Text style for inactive bottom navigation items -->
+    <style name="TextAppearance.BananaMusic.BottomNavigationView.Inactive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="Theme.BananaMusic.Dialog" parent="Theme.MaterialComponents.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:windowFrame">@null</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="android:windowMinWidthMajor">65%</item>
+        <item name="android:windowMinWidthMinor">65%</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+    </style>
+</resources>

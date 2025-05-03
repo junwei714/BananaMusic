@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shimmer attributes for Facebook Shimmer library -->
+    <declare-styleable name="ShimmerFrameLayout">
+        <attr name="shimmer_auto_start" format="boolean" />
+        <attr name="shimmer_base_color" format="color|reference" />
+        <attr name="shimmer_highlighted_color" format="color|reference" />
+        <attr name="shimmer_direction" format="enum">
+            <enum name="left_to_right" value="0" />
+            <enum name="right_to_left" value="1" />
+            <enum name="top_to_bottom" value="2" />
+            <enum name="bottom_to_top" value="3" />
+        </attr>
+        <attr name="shimmer_duration" format="integer" />
+        <attr name="shimmer_repeat_count" format="integer" />
+        <attr name="shimmer_repeat_delay" format="integer" />
+        <attr name="shimmer_repeat_mode" format="enum">
+            <enum name="restart" value="1" />
+            <enum name="reverse" value="2" />
+        </attr>
+        <attr name="shimmer_clip_to_children" format="boolean" />
+        <attr name="shimmer_intensity" format="float" />
+        <attr name="shimmer_width_ratio" format="float" />
+        <attr name="shimmer_height_ratio" format="float" />
+        <attr name="shimmer_shape" format="enum">
+            <enum name="linear" value="0" />
+            <enum name="radial" value="1" />
+        </attr>
+    </declare-styleable>
+
+    <!-- Attributes for MusicVisualizer -->
+    <declare-styleable name="MusicVisualizer">
+        <attr name="numBars" format="integer" />
+        <attr name="barWidth" format="dimension" />
+        <attr name="barGap" format="dimension" />
+        <attr name="animationTime" format="integer" />
+        <attr name="barColor" format="color" />
+    </declare-styleable>
+</resources> 

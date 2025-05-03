@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_play"
+        android:title="Play"
+        android:orderInCategory="50" />
+    <item
+        android:id="@+id/action_track_info"
+        android:title="Source: Unknown"
+        android:orderInCategory="100" />
+    <item
+        android:id="@+id/action_add_to_playlist"
+        android:title="Add to playlist"
+        android:orderInCategory="200" />
+    <item
+        android:id="@+id/action_vote_up"
+        android:title="Vote Up"
+        android:orderInCategory="250" />
+    <item
+        android:id="@+id/action_vote_down"
+        android:title="Vote Down"
+        android:orderInCategory="275" />
+    <item
+        android:id="@+id/action_view_on_spotify"
+        android:title="Open in Spotify"
+        android:orderInCategory="300" />
+    <item
+        android:id="@+id/action_view_on_youtube"
+        android:title="Watch on YouTube"
+        android:orderInCategory="400" />
+    <item
+        android:id="@+id/action_download"
+        android:icon="@drawable/ic_download"
+        android:title="Download for offline playback" />
+    <item
+        android:id="@+id/action_share"
+        android:title="Share"
+        android:orderInCategory="500" />
+    <item
+        android:id="@+id/action_remove"
+        android:title="Remove"
+        android:orderInCategory="600" />
+</menu> 

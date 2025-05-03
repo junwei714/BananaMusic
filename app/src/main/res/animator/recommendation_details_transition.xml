@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_expanded="true">
+        <set android:ordering="together">
+            <objectAnimator
+                android:propertyName="alpha"
+                android:duration="300"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"/>
+            <objectAnimator
+                android:propertyName="translationY"
+                android:duration="300"
+                android:valueFrom="20dp"
+                android:valueTo="0dp"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/decelerate_cubic"/>
+        </set>
+    </item>
+    <item>
+        <set android:ordering="together">
+            <objectAnimator
+                android:propertyName="alpha"
+                android:duration="200"
+                android:valueFrom="1"
+                android:valueTo="0"
+                android:valueType="floatType"/>
+            <objectAnimator
+                android:propertyName="translationY"
+                android:duration="200"
+                android:valueFrom="0dp"
+                android:valueTo="20dp"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/accelerate_cubic"/>
+        </set>
+    </item>
+</selector>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background (track) -->
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp"/>
+            <solid android:color="#33FFFFFF"/>
+            <size android:height="4dp"/>
+        </shape>
+    </item>
+
+    <!-- Progress (buffered content) -->
+    <item android:id="@android:id/secondaryProgress">
+        <scale android:scaleWidth="100%">
+            <shape android:shape="rectangle">
+                <corners android:radius="8dp"/>
+                <solid android:color="#80FFFFFF"/>
+                <size android:height="4dp"/>
+            </shape>
+        </scale>
+    </item>
+
+    <!-- Progress (played content) -->
+    <item android:id="@android:id/progress">
+        <scale android:scaleWidth="100%">
+            <shape android:shape="rectangle">
+                <corners android:radius="8dp"/>
+                <solid android:color="?attr/colorAccent"/>
+                <size android:height="4dp"/>
+            </shape>
+        </scale>
+    </item>
+</layer-list> 

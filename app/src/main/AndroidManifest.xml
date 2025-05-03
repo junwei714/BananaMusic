@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="my.edu.utar.bananamusic">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+                     android:maxSdkVersion="29" />
+    <!-- For Android 10 (API level 29) and higher -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+                     tools:ignore="ScopedStorage" />
+    <!-- For Android 13 (API level 33) and higher -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- For notifications on Android 13 (API level 33) and higher -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Audio playback permissions -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Permission for background work -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:name=".BananaMusicApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.BananaMusic"
+        tools:targetApi="31">
+        
+        <meta-data
+            android:name="firebase_performance_logcat_enabled"
+            android:value="true" />
+            
+        <meta-data
+            android:name="firebase_auth_disable_recaptcha_verification_for_testing"
+            android:value="true" />
+            
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+            
+        <meta-data
+            android:name="com.google.android.gms.ads.AD_MANAGER_APP"
+            android:value="false" />
+        
+        <activity
+            android:name=".activities.SplashActivity"
+            android:exported="true"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.BananaMusic.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".auth.LoginActivity"
+            android:stateNotNeeded="true"
+            android:exported="true">
+        </activity>
+        
+        <activity
+            android:name=".auth.SignupActivity"
+            android:stateNotNeeded="true"
+            android:exported="false" />
+            
+        <activity
+            android:name=".MainActivity"
+            android:stateNotNeeded="true"
+            android:exported="true"
+            android:theme="@style/Theme.BananaMusic">
+            <!-- Intent filter for deep links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="bananamusic.app"
+                    android:pathPrefix="/join" />
+            </intent-filter>
+            <!-- Intent filter for shared links -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".ui.player.MusicPlayerActivity"
+            android:stateNotNeeded="true"
+            android:exported="false"
+            android:theme="@style/Theme.BananaMusic.NoActionBar" />
+            
+        <activity
+            android:name=".ui.playlist.CreatePlaylistActivity"
+            android:stateNotNeeded="true"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+            
+        <activity
+            android:name=".ui.SpotifyPlaybackDemoActivity"
+            android:exported="true"
+            android:label="Spotify Playback Demo">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+            
+        <activity
+            android:name=".activities.AllAlbumsActivity"
+            android:label="Featured Albums"
+            android:theme="@style/Theme.BananaMusic.NoActionBar"/>
+            
+        <activity
+            android:name=".activities.EditProfileActivity"
+            android:exported="false"
+            android:label="Edit Profile" />
+            
+        <activity
+            android:name=".activities.ProfileActivity"
+            android:exported="false"
+            android:label="Profile" />
+            
+        <activity
+            android:name=".activities.CreatePlaylistActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:label="Create Playlist" />
+            
+        <service
+            android:name=".services.MusicPlaybackService"
+            android:enabled="true"
+            android:exported="false" />
+            
+        <!-- WorkManager provider -->
+        <provider
+            android:name="androidx.work.impl.WorkManagerInitializer"
+            android:authorities="${applicationId}.workmanager-init"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="remove" />
+            
+    </application>
+
+</manifest>

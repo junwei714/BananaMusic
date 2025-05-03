@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardBackgroundColor="@color/colorCardBackground"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Top section with cover and basic info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+            <!-- Playlist Cover Image -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivPlaylistCover"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:scaleType="centerCrop"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.SmallRoundedCorners"
+                tools:src="@drawable/ic_album_placeholder"/>
+
+            <!-- Playlist Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <!-- Playlist Name & Heart Button Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="@dimen/margin_medium"
+                    android:paddingEnd="@dimen/margin_medium"
+                    android:paddingTop="@dimen/margin_small"
+                    android:paddingBottom="@dimen/margin_small"
+                    android:background="?attr/selectableItemBackground">
+
+                    <!-- Playlist Title -->
+                    <TextView
+                        android:id="@+id/tvPlaylistName"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        tools:text="Discover Weekly" />
+
+                    <!-- Love Button -->
+                    <ImageButton
+                        android:id="@+id/btnLovePlaylist"
+                        android:layout_width="@dimen/icon_button_small"
+                        android:layout_height="@dimen/icon_button_small"
+                        android:layout_marginStart="@dimen/margin_small"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/add_to_library"
+                        android:padding="@dimen/icon_padding_medium"
+                        android:src="@drawable/ic_favorite_border"
+                        app:tint="@android:color/white" />
+
+                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                        android:id="@+id/fabPlay"
+                        style="@style/Widget.MaterialComponents.FloatingActionButton"
+                        android:layout_width="@dimen/icon_button_large"
+                        android:layout_height="@dimen/icon_button_large"
+                        android:layout_gravity="center_vertical|end"
+                        android:layout_marginEnd="@dimen/margin_medium"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="4dp"
+                        android:contentDescription="@string/play_playlist"
+                        android:src="@drawable/ic_play_arrow"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:backgroundTint="@color/colorHappy"
+                        app:elevation="4dp"
+                        app:fabCustomSize="@dimen/icon_button_large"
+                        app:rippleColor="@color/colorPrimaryDark"
+                        app:tint="@android:color/white" />
+
+                </LinearLayout>
+
+
+                <!-- Creator/Description -->
+                <TextView
+                    android:id="@+id/tvCreator"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:alpha="0.7"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textColor="@color/colorHappy"
+                    android:textSize="12sp"
+                    tools:text="Your personal playlist with fresh discoveries"/>
+
+                <!-- Mood Tag -->
+                <TextView
+                    android:id="@+id/tvMoodTag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:background="@drawable/gradient_happy"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:alpha="0.9"
+                    tools:text="Happy"/>
+                
+                <!-- Track Count -->
+                <TextView
+                    android:id="@+id/tvTrackCount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/colorHappy"
+                    android:textSize="12sp"
+                    tools:text="5 tracks"/>
+            </LinearLayout>
+
+            <!-- Play Button positioned to the right of the playlist info -->
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/colorDivider"/>
+
+        <!-- Track Preview Section -->
+        <LinearLayout
+            android:id="@+id/trackPreviewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="visible">
+
+            <!-- Up to 3 Track Preview Items -->
+            <include
+                android:id="@+id/trackPreview1"
+                layout="@layout/item_track_mini"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+
+            <include
+                android:id="@+id/trackPreview2"
+                layout="@layout/item_track_mini"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"/>
+
+            <include
+                android:id="@+id/trackPreview3"
+                layout="@layout/item_track_mini"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"/>
+
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView> 

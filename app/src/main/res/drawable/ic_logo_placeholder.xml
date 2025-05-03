@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    
+    <!-- Background Circle -->
+    <path
+        android:fillColor="@color/colorAccent"
+        android:pathData="M60,60m-60,0a60,60 0,1 1,120 0a60,60 0,1 1,-120 0" />
+    
+    <!-- Banana Shape -->
+    <path
+        android:fillColor="@color/colorPrimaryDark"
+        android:pathData="M85,35c-5.5,0 -18.5,7.5 -24,13 -5.5,5.5 -13,18.5 -13,24 0,5.5 4.5,10 10,10 5.5,0 18.5,-7.5 24,-13 5.5,-5.5 13,-18.5 13,-24 0,-5.5 -4.5,-10 -10,-10zM35,65c2.76,0 5,-2.24 5,-5s-2.24,-5 -5,-5 -5,2.24 -5,5 2.24,5 5,5zM50,80c2.76,0 5,-2.24 5,-5s-2.24,-5 -5,-5 -5,2.24 -5,5 2.24,5 5,5z" />
+    
+    <!-- Music Note -->
+    <path
+        android:fillColor="@color/colorPrimary"
+        android:pathData="M70,45v20.35c-1.44,-0.77 -3.1,-1.35 -5,-1.35 -5.5,0 -10,4.5 -10,10s4.5,10 10,10 10,-4.5 10,-10V55h10V45H70z" />
+    
+</vector> 

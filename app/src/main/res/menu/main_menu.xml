@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_logout"
+        android:title="Logout"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_play_local"
+        android:title="Play Local File"
+        android:orderInCategory="200"
+        app:showAsAction="never" />
+        
+    <!-- These items are added dynamically in code -->
+    <!-- <item android:id="12345" android:title="Fix Audio" /> -->
+    <!-- <item android:id="12346" android:title="Update Playlist Covers" /> -->
+</menu>

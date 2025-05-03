@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/miniPlayerContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    android:background="@drawable/mini_player_background"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:minHeight="72dp"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:elevation="16dp"
+    android:translationZ="8dp"
+    android:stateListAnimator="@null">
+
+    <!-- Progress bar at the top - Spotify style -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progressBar"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_marginTop="-12dp"
+        android:progress="0"
+        android:visibility="visible"
+        app:indicatorColor="#1DB954"
+        app:trackColor="#33FFFFFF"
+        app:trackCornerRadius="2dp"
+        app:trackThickness="3dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Add visualizer bars -->
+    <LinearLayout
+        android:id="@+id/visualizerView"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:orientation="horizontal"
+        android:weightSum="13"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="2dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:visibility="visible"
+        app:layout_constraintTop_toBottomOf="@+id/progressBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <!-- Individual bars for visualizer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.7" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.5" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.3" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.7" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.5" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.9" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.6" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.4" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.8" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.5" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.3" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="2dp"
+            android:background="#1DB954"
+            android:alpha="0.7" />
+            
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#1DB954"
+            android:alpha="0.4" />
+    </LinearLayout>
+
+    <!-- Time labels below progress bar -->
+    <TextView
+        android:id="@+id/tvCurrentTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        android:textColor="#CCFFFFFF"
+        android:textSize="10sp"
+        android:visibility="visible"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@+id/visualizerView"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:ignore="SmallSp" />
+
+    <TextView
+        android:id="@+id/tvTotalTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        android:textColor="#CCFFFFFF"
+        android:textSize="10sp"
+        android:visibility="visible"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@+id/visualizerView"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:ignore="SmallSp" />
+
+    <!-- Main content area -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/mainContentArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/tvCurrentTime"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- Album Art with improved styling -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardCurrentTrackArt"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            app:cardCornerRadius="4dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp"
+            android:clickable="false"
+            android:focusable="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivCurrentTrackArt"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:clickable="false"
+                android:focusable="false"
+                tools:src="@drawable/album_placeholder" />
+
+            <!-- Loading indicator overlay -->
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/loadingIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                app:indicatorSize="24dp"
+                app:trackThickness="2dp"
+                app:indicatorColor="#1DB954"
+                android:visibility="gone" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Track Info with improved styling -->
+        <LinearLayout
+            android:id="@+id/llCurrentTrackInfo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
+            android:clickable="false"
+            android:focusable="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/controlsArea"
+            app:layout_constraintStart_toEndOf="@+id/cardCurrentTrackArt"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/tvCurrentTrackTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="-1"
+                android:scrollHorizontally="true"
+                android:singleLine="true"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:clickable="false"
+                android:focusable="false"
+                tools:text="Track Title" />
+
+            <TextView
+                android:id="@+id/tvCurrentTrackArtist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:alpha="0.8"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="-1"
+                android:scrollHorizontally="true"
+                android:singleLine="true"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:clickable="false"
+                android:focusable="false"
+                tools:text="Artist Name" />
+        </LinearLayout>
+
+        <!-- Controls Area -->
+        <LinearLayout
+            android:id="@+id/controlsArea"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <!-- Like Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLike"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="8dp"
+                app:icon="@drawable/ic_favorite_border"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="#CCFFFFFF"
+                android:background="@android:color/transparent"
+                style="@style/Widget.MaterialComponents.Button.TextButton.Icon" />
+
+            <!-- Play/Pause Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_play_pause"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginHorizontal="4dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="8dp"
+                app:icon="@drawable/ic_play_arrow"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@android:color/white"
+                app:backgroundTint="#1DB954"
+                app:cornerRadius="24dp"
+                style="@style/Widget.MaterialComponents.Button.Icon" />
+
+            <!-- Next Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnNext"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="8dp"
+                app:icon="@drawable/ic_skip_next"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="#CCFFFFFF"
+                android:background="@android:color/transparent"
+                style="@style/Widget.MaterialComponents.Button.TextButton.Icon" />
+
+            <!-- Connect Device Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConnectDevice"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="8dp"
+                android:visibility="gone"
+                app:icon="@drawable/ic_devices"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="#CCFFFFFF"
+                android:background="@android:color/transparent"
+                style="@style/Widget.MaterialComponents.Button.TextButton.Icon" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Clickable overlay for opening full player -->
+    <View
+        android:id="@+id/clickableOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout> 

@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Banana Music Theme Colors (Spotify-inspired) -->
+    <color name="colorPrimary">#1DB954</color> <!-- Spotify Green -->
+    <color name="colorPrimaryDark">#191414</color> <!-- Spotify Dark Background -->
+    <color name="colorPrimaryLight">#1ED760</color> <!-- Lighter Spotify Green -->
+    <color name="colorAccent">#FDD835</color> <!-- Changed to Happy Yellow -->
+    <color name="green_500">#1DB954</color> <!-- Added missing color referenced in layout -->
+    
+    <color name="colorBackground">#121212</color> <!-- Dark Background -->
+    <color name="background">#121212</color> <!-- Adding the missing background color -->
+    <color name="colorSurface">#282828</color> <!-- Card Background -->
+    <color name="colorOnSurface">#BBBBBB</color>
+    <color name="colorOnSurfaceVariant">#999999</color> <!-- Secondary text color -->
+    <color name="colorHighlight">#535353</color> <!-- Light Gray for Dividers -->
+    <color name="colorError">#F44336</color>
+    <color name="error_text">#F44336</color> <!-- Added missing error text color -->
+    <color name="colorSuccess">#4CAF50</color>
+    
+    <!-- Mood-specific colors -->
+    <!-- Happy -->
+    <color name="mood_happy_primary">#FDD835</color>
+    <color name="mood_happy_dark">#F9A825</color>
+    <color name="mood_happy_light">#FFEE58</color>
+    <color name="mood_happy_gradient_start">#FDD835</color>
+    <color name="mood_happy_gradient_end">#F57F17</color>
+    <color name="mood_happy_ripple">#80FFC107</color>
+    <color name="colorHappy">#FDD835</color>
+    
+    <!-- Sad -->
+    <color name="mood_sad_primary">#2196F3</color>
+    <color name="mood_sad_dark">#1976D2</color>
+    <color name="mood_sad_light">#64B5F6</color>
+    <color name="mood_sad_gradient_start">#2196F3</color>
+    <color name="mood_sad_gradient_end">#0D47A1</color>
+    <color name="mood_sad_ripple">#800D47A1</color>
+    <color name="colorSad">#2196F3</color>
+    
+    <!-- Energetic -->
+    <color name="mood_energetic_primary">#F44336</color>
+    <color name="mood_energetic_dark">#D32F2F</color>
+    <color name="mood_energetic_light">#E57373</color>
+    <color name="mood_energetic_gradient_start">#F44336</color>
+    <color name="mood_energetic_gradient_end">#B71C1C</color>
+    <color name="mood_energetic_ripple">#80B71C1C</color>
+    <color name="colorEnergetic">#F44336</color>
+    
+    <!-- Relaxed -->
+    <color name="mood_relaxed_primary">#4CAF50</color>
+    <color name="mood_relaxed_dark">#388E3C</color>
+    <color name="mood_relaxed_light">#81C784</color>
+    <color name="mood_relaxed_gradient_start">#4CAF50</color>
+    <color name="mood_relaxed_gradient_end">#1B5E20</color>
+    <color name="mood_relaxed_ripple">#801B5E20</color>
+    <color name="colorRelaxed">#4CAF50</color>
+    
+    <!-- Spotify UI colors -->
+    <color name="background_dark">#121212</color>
+    <color name="background_elevated">#1E1E1E</color>
+    <color name="item_background">#282828</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="icon_color">#B3FFFFFF</color>
+    <color name="accent">#1DB954</color> <!-- Spotify Green -->
+    <color name="lightGray">#B3B3B3</color>
+    <color name="dark_gray">#333333</color>
+    <color name="spotify_black">#191414</color>
+    <color name="divider">#333333</color>
+    <color name="now_playing_green">#1DB954</color>
+    <color name="shimmer_color">#DDDDDD</color>
+    <color name="shimmerColor">#DDDDDD</color>
+    <color name="shimmer_background">#333333</color>
+    
+    <!-- Add chip color resources -->
+    <color name="chip_selected">#1DB954</color>
+    <color name="chip_unselected">#222222</color>
+    <color name="text_selected">@color/white</color>
+    <color name="text_unselected">#AAAAAA</color>
+    
+    <!-- Source Tag Colors -->
+    <color name="spotify_green">#1DB954</color>
+    <color name="youtube_red">#FF0000</color>
+    <color name="jiosaavn_blue">#2196F3</color>
+    <color name="soundcloud_orange">#FF7700</color>
+    <color name="local_purple">#673AB7</color>
+    <color name="generic_music_gray">#607D8B</color>
+    
+    <!-- Spotify Mini Player Colors -->
+    <color name="colorSpotifyGreen">#1DB954</color>
+    <color name="colorSpotifyBlack">#191414</color>
+    <color name="colorSpotifyDarkGray">#1E1E1E</color>
+    <color name="colorPlayerBackground">#262626</color>
+    <color name="colorPlayerGradientStart">#1E1E1E</color>
+    <color name="colorPlayerGradientEnd">#262626</color>
+    <color name="colorSecondaryText">#B3FFFFFF</color>
+    
+    <!-- Missing colors for enhanced playlist UI -->
+    <color name="colorCardBackground">#282828</color>
+    <color name="colorDivider">#333333</color>
+    <color name="colorTextSecondary">#B3FFFFFF</color>
+    
+    <!-- Recommendation feature colors -->
+    <color name="energy_bar_color">#FF5722</color>
+    <color name="dance_bar_color">#2196F3</color>
+    <color name="mood_bar_color">#4CAF50</color>
+    <color name="recommendation_text_color">#9C27B0</color>
+    
+    <!-- Genre and mood chip colors -->
+    <color name="genre_chip_background">#1A237E</color>
+    <color name="genre_chip_text">#FFFFFF</color>
+    <color name="mood_chip_background">#311B92</color>
+    <color name="mood_chip_text">#FFFFFF</color>
+    
+    <!-- Refresh colors -->
+    <color name="refresh_color_1">#FFE135</color>
+    <color name="refresh_color_2">#FFD700</color>
+    <color name="refresh_color_3">#FFA500</color>
+    <color name="refresh_color_4">#FF8C00</color>
+    
+    <!-- Navigation Colors -->
+    <color name="nav_item_color">@color/white</color>
+    <color name="navigationBarColor">@color/colorPrimaryDark</color>
+    
+    <!-- Window Colors -->
+    <color name="windowBackground">@color/background</color>
+    
+    <!-- Player Colors -->
+    <color name="player_background">@color/colorBackground</color>
+    <color name="player_background_start">#121212</color>
+    <color name="player_background_end">#282828</color>
+    <color name="player_progress_background">#4D4D4D</color>
+    <color name="player_progress_foreground">@color/white</color>
+    <color name="player_controls_background">#282828</color>
+    <color name="player_text_primary">@color/white</color>
+    <color name="player_text_secondary">#B3B3B3</color>
+    <color name="player_button_tint">@color/white</color>
+    <color name="player_button_inactive">#727272</color>
+    
+    <!-- Bottom Navigation Colors -->
+    <color name="nav_item_selected">#FFFFFF</color>
+    <color name="nav_item_unselected">#80FFFFFF</color>
+    
+    <color name="cardBackground">#2A2A2A</color>
+    <color name="stroke_color">#1FFFFFFF</color>
+    
+    <!-- Mood Selection Colors -->
+    <color name="mood_happy_start">#1ED760</color>
+    <color name="mood_happy_end">#1DB954</color>
+    
+    <color name="mood_sad_start">#20DF80</color>
+    <color name="mood_sad_end">#1DC965</color>
+    
+    <color name="mood_chill_start">#22E1A0</color>
+    <color name="mood_chill_end">#1FD976</color>
+    
+    <color name="mood_party_start">#24E3C0</color>
+    <color name="mood_party_end">#21E987</color>
+    
+    <color name="mood_focus_start">#26E5E0</color>
+    <color name="mood_focus_end">#23F998</color>
+    
+    <color name="mood_romantic_start">#28E7FF</color>
+    <color name="mood_romantic_end">#25FFA9</color>
+    
+    <!-- Top Trending Colors -->
+    <color name="top_1_background">#FFD700</color> <!-- Gold -->
+    <color name="top_2_background">#C0C0C0</color> <!-- Silver -->
+    <color name="top_3_background">#CD7F32</color> <!-- Bronze -->
+    <color name="card_background">@color/colorSurface</color>
+</resources>

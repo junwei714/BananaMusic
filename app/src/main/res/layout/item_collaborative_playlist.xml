@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="180dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#3DFFFFFF"
+    android:clickable="true"
+    android:focusable="true"
+    app:rippleColor="#33FFFFFF"
+    app:cardBackgroundColor="#1A1A1A">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Cover Image -->
+        <ImageView
+            android:id="@+id/ivPlaylistCover"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/playlist_cover"/>
+
+        <!-- 半透明遮罩 + 文字資訊 -->
+        <LinearLayout
+            android:id="@+id/overlayInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:background="#80000000">
+
+            <!-- Playlist Name -->
+            <TextView
+                android:id="@+id/tvPlaylistName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:layout_marginBottom="4dp"
+                tools:text="Playlist Name"/>
+
+            <!-- Track Count -->
+            <TextView
+                android:id="@+id/tvTrackCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#BDBDBD"
+                android:maxLines="1"
+                android:layout_marginBottom="2dp"
+                tools:text="3 tracks"/>
+
+            <!-- Creator -->
+            <TextView
+                android:id="@+id/tvCreator"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#CCCCCC"
+                android:maxLines="1"
+                android:ellipsize="end"
+                tools:text="Created by User"/>
+        </LinearLayout>
+
+        <!-- Collaborative Badge -->
+        <ImageView
+            android:id="@+id/collaborativeBadge"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_margin="12dp"
+            android:layout_gravity="top|end"
+            android:src="@drawable/ic_collaborative"
+            android:visibility="visible"
+            app:tint="#FFFFFF"/>
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_margin="12dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/button_background"
+            android:padding="4dp">
+
+            <!-- Love Button -->
+            <ImageButton
+                android:id="@+id/btnLovePlaylist"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_favorite_border"
+                android:contentDescription="@string/love_playlist"
+                android:padding="6dp"/>
+
+            <!-- Save Button -->
+            <ImageButton
+                android:id="@+id/btnSave"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_save"
+                android:contentDescription="@string/save_to_library"
+                android:padding="6dp"/>
+        </LinearLayout>
+
+    </FrameLayout>
+</com.google.android.material.card.MaterialCardView>

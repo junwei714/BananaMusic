@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="160dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardBackgroundColor="@android:color/transparent"
+    app:cardElevation="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Playlist Cover with Play Button Overlay -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="160dp">
+
+            <!-- Playlist Cover Image -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivPlaylistCover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.SmallRoundedCorners"
+                tools:src="@drawable/ic_album_placeholder"/>
+
+            <!-- Play Button (Initially Hidden) -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabPlay"
+                style="@style/PlaylistPlayButton.Mini"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <!-- Shadow Overlay for Text Readability -->
+            <View
+                android:id="@+id/shadowOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/gradient_bottom_overlay"
+                android:visibility="gone"/>
+        </FrameLayout>
+
+        <!-- Playlist Information -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Playlist Name Row with Heart Button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                
+                <TextView
+                    android:id="@+id/tvPlaylistName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Discover Weekly"/>
+                
+                <ImageButton
+                    android:id="@+id/btnLovePlaylist"
+                    android:layout_width="@dimen/icon_button_small"
+                    android:layout_height="@dimen/icon_button_small"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/add_to_library"
+                    android:src="@drawable/ic_favorite_border"
+                    android:padding="@dimen/icon_padding_medium"
+                    app:tint="@color/white"/>
+            </LinearLayout>
+
+            <!-- Controls Row (Play button & Creator) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="@dimen/margin_small">
+                
+                <ImageButton
+                    android:id="@+id/btnPlay"
+                    android:layout_width="@dimen/icon_button_small"
+                    android:layout_height="@dimen/icon_button_small"
+                    android:background="@drawable/circle_background"
+                    android:contentDescription="@string/play_button"
+                    android:padding="@dimen/icon_padding_small"
+                    android:src="@drawable/ic_play_arrow"
+                    app:tint="@color/white"/>
+                
+                <TextView
+                    android:id="@+id/tvCreator"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="@dimen/margin_medium"
+                    android:alpha="0.7"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/colorPrimaryLight"
+                    android:textSize="12sp"
+                    tools:text="Your personal playlist"/>
+            </LinearLayout>
+
+            <!-- Description (Second line of creator info) -->
+            <TextView
+                android:id="@+id/tvDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:alpha="0.7"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/colorPrimaryLight"
+                android:textSize="12sp"
+                tools:text="with fresh discoveries and deep cuts"/>
+
+            <!-- Mood Tag -->
+            <TextView
+                android:id="@+id/tvMoodTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:background="@drawable/mood_tag_background"
+                android:textColor="@color/white"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:alpha="0.9"
+                android:visibility="gone"
+                tools:text="Happy"
+                tools:visibility="visible"/>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView> 

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/margin_large"
+    android:layout_marginTop="@dimen/margin_medium"
+    android:layout_marginEnd="@dimen/margin_large"
+    android:layout_marginBottom="@dimen/margin_medium"
+    app:cardBackgroundColor="@color/colorPrimaryDark"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="@dimen/margin_large">
+
+        <ImageView
+            android:id="@+id/iv_playlist_cover"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:scaleType="centerCrop"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@android:color/darker_gray" />
+
+        <LinearLayout
+            android:id="@+id/layout_title_row"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_large"
+            android:layout_marginEnd="@dimen/margin_large"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintTop_toTopOf="@+id/iv_playlist_cover"
+            app:layout_constraintStart_toEndOf="@+id/iv_playlist_cover"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Playlist Name -->
+            <TextView
+                android:id="@+id/tv_playlist_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="My Favorite Playlist" />
+
+            <!-- Favorite Button -->
+            <ImageButton
+                android:id="@+id/btn_love_playlist"
+                android:layout_width="@dimen/icon_button_small"
+                android:layout_height="@dimen/icon_button_small"
+                android:layout_marginStart="@dimen/margin_small"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Add to library"
+                android:padding="@dimen/icon_padding_medium"
+                android:src="@drawable/ic_favorite_border"
+                app:tint="@color/white" />
+
+            <!-- Play Button -->
+            <ImageButton
+                android:id="@+id/btn_play"
+                android:layout_width="@dimen/icon_button_large"
+                android:layout_height="@dimen/icon_button_large"
+                android:layout_marginStart="@dimen/margin_small"
+                android:background="@drawable/circle_background"
+                android:contentDescription="Play"
+                android:padding="@dimen/icon_padding_large"
+                android:src="@drawable/ic_play_arrow"
+                app:tint="@color/white" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_playlist_tracks"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_large"
+            android:layout_marginTop="@dimen/margin_small"
+            android:layout_marginEnd="@dimen/margin_medium"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/iv_playlist_cover"
+            app:layout_constraintTop_toBottomOf="@+id/layout_title_row"
+            tools:text="23 tracks" />
+
+        <TextView
+            android:id="@+id/tv_playlist_description"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_large"
+            android:layout_marginTop="@dimen/margin_small"
+            android:layout_marginEnd="@dimen/margin_medium"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_playlist_cover"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/iv_playlist_cover"
+            app:layout_constraintTop_toBottomOf="@+id/tv_playlist_tracks"
+            app:layout_constraintVertical_bias="0.0"
+            tools:text="A collection of my favorite tracks" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView> 

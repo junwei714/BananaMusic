@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/shimmer_trending"
+    android:layout_width="match_parent" 
+    android:layout_height="wrap_content"
+    app:shimmer_auto_start="true"
+    app:shimmer_base_color="@color/colorSurface"
+    app:shimmer_highlighted_color="@color/colorPrimaryLight"
+    app:shimmer_direction="left_to_right"
+    app:shimmer_duration="800">
+    
+    <androidx.recyclerview.widget.RecyclerView
+        android:layout_width="match_parent"
+        android:layout_height="240dp"
+        android:clipToPadding="false"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager">
+
+        <include layout="@layout/item_playlist_shimmer" />
+        <include layout="@layout/item_playlist_shimmer" />
+        <include layout="@layout/item_playlist_shimmer" />
+
+    </androidx.recyclerview.widget.RecyclerView>
+</com.facebook.shimmer.ShimmerFrameLayout> 

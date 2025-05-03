@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="now_playing_direct_container" type="id" />
+    <!-- Tag IDs used for storing data in views -->
+    <item name="tag_current_rotation" type="id" />
+    <!-- Add missing IDs for UI elements -->
+    <item name="rvMoodSelection" type="id" />
+    <item name="mood_selection_section" type="id" />
+    <item name="tvSeeAllPlaylists" type="id" />
+    <item name="tvSeeAllCollaborativePlaylists" type="id" />
+    <item name="progress_bar" type="id" />
+    <item name="error_text" type="id" />
+</resources> 

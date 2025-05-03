@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:title="Playback Settings"
+        android:key="playback_settings">
+
+        <SwitchPreferenceCompat
+            android:key="enable_gapless_playback"
+            android:title="Gapless Playback"
+            android:summary="Eliminate gaps between tracks for continuous playback"
+            android:defaultValue="true" />
+            
+        <SwitchPreferenceCompat
+            android:key="enable_crossfade"
+            android:title="Crossfade Tracks"
+            android:summary="Smoothly transition between tracks"
+            android:defaultValue="true" />
+        
+        <SeekBarPreference
+            android:key="crossfade_duration_ms"
+            android:title="Crossfade Duration"
+            android:summary="Duration of crossfade between tracks"
+            android:defaultValue="500"
+            app:min="200"
+            android:max="12000"
+            app:showSeekBarValue="true"
+            app:seekBarIncrement="100"
+            android:dependency="enable_crossfade" />
+        
+        <ListPreference
+            android:key="default_repeat_mode"
+            android:title="Default Repeat Mode"
+            android:summary="Default repeat behavior when starting playback"
+            android:entries="@array/repeat_mode_entries"
+            android:entryValues="@array/repeat_mode_values"
+            android:defaultValue="0" />
+            
+        <SwitchPreferenceCompat
+            android:key="remember_playback_state"
+            android:title="Remember Playback State"
+            android:summary="Resume from last played position when restarting the app"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+    
+    <PreferenceCategory
+        android:title="Auto-Recommendations"
+        android:key="recommendations_settings">
+        
+        <SwitchPreferenceCompat
+            android:key="enable_auto_recommendations"
+            android:title="Auto-Recommendations"
+            android:summary="Automatically add recommended tracks when queue ends"
+            android:defaultValue="true" />
+            
+        <SeekBarPreference
+            android:key="auto_recommendations_count"
+            android:title="Number of Recommendations"
+            android:summary="How many tracks to add automatically"
+            android:defaultValue="5"
+            app:min="1"
+            android:max="20"
+            app:showSeekBarValue="true"
+            android:dependency="enable_auto_recommendations" />
+            
+        <ListPreference
+            android:key="recommendations_source"
+            android:title="Recommendations Source"
+            android:summary="Where to get recommendations from"
+            android:entries="@array/recommendation_source_entries"
+            android:entryValues="@array/recommendation_source_values"
+            android:defaultValue="1"
+            android:dependency="enable_auto_recommendations" />
+    </PreferenceCategory>
+    
+    <PreferenceCategory
+        android:title="Audio Quality"
+        android:key="audio_quality_settings">
+        
+        <ListPreference
+            android:key="preferred_audio_quality"
+            android:title="Preferred Audio Quality"
+            android:summary="Choose your preferred streaming quality"
+            android:entries="@array/audio_quality_entries"
+            android:entryValues="@array/audio_quality_values"
+            android:defaultValue="1" />
+            
+        <SwitchPreferenceCompat
+            android:key="wifi_high_quality"
+            android:title="High Quality on WiFi Only"
+            android:summary="Use high quality streaming only on WiFi connections"
+            android:defaultValue="true" />
+            
+        <SwitchPreferenceCompat
+            android:key="enable_track_caching"
+            android:title="Enable Track Caching"
+            android:summary="Cache tracks for offline playback and improved performance"
+            android:defaultValue="true" />
+            
+        <SeekBarPreference
+            android:key="cache_size_mb"
+            android:title="Cache Size"
+            android:summary="Maximum storage used for cached tracks"
+            android:defaultValue="500"
+            app:min="100"
+            android:max="2000"
+            app:showSeekBarValue="true"
+            app:seekBarIncrement="100"
+            android:dependency="enable_track_caching" />
+    </PreferenceCategory>
+    
+    <PreferenceCategory
+        android:title="Audio Performance"
+        android:key="audio_performance_settings">
+        
+        <SwitchPreferenceCompat
+            android:key="use_low_latency_audio"
+            android:title="Low Latency Audio"
+            android:summary="Enable for faster response but higher battery usage"
+            android:defaultValue="false" />
+            
+        <SwitchPreferenceCompat
+            android:key="preload_next_track"
+            android:title="Preload Next Track"
+            android:summary="Prepare the next track in queue for faster transitions"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+</PreferenceScreen> 

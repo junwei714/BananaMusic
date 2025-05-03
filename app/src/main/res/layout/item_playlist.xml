@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="180dp"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="4dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="@color/cardBackground">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Playlist Cover Image -->
+        <ImageView
+            android:id="@+id/ivPlaylistCover"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="Playlist cover" />
+
+        <!-- Shadow Overlay for Play Button -->
+        <View
+            android:id="@+id/shadowOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:background="#66000000"
+            android:visibility="gone" />
+
+        <!-- Play Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabPlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:visibility="gone"
+            app:fabSize="mini"
+            android:src="@drawable/ic_play_arrow" />
+
+        <!-- Collaborative Badge -->
+        <ImageView
+            android:id="@+id/collaborativeBadge"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignTop="@id/ivPlaylistCover"
+            android:layout_alignEnd="@id/ivPlaylistCover"
+            android:layout_margin="8dp"
+            android:src="@drawable/ic_collaborative"
+            android:visibility="gone" />
+
+        <!-- Source Indicator -->
+        <ImageView
+            android:id="@+id/sourceIndicatorView"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignTop="@id/ivPlaylistCover"
+            android:layout_alignStart="@id/ivPlaylistCover"
+            android:layout_margin="8dp"
+            android:visibility="gone" />
+
+        <!-- Options Button -->
+        <ImageView
+            android:id="@+id/ivPlaylistOptions"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignTop="@id/ivPlaylistCover"
+            android:layout_alignEnd="@id/ivPlaylistCover"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Playlist options"
+            android:src="@drawable/ic_more_vert" />
+
+        <!-- Save Button -->
+        <ImageButton
+            android:id="@+id/btnSave"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignEnd="@id/ivPlaylistCover"
+            android:layout_alignBottom="@id/ivPlaylistCover"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Save to library"
+            android:src="@drawable/ic_save" />
+
+        <!-- Love Button -->
+        <ImageButton
+            android:id="@+id/btnLovePlaylist"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignBottom="@id/ivPlaylistCover"
+            android:layout_alignStart="@id/ivPlaylistCover"
+            android:layout_margin="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_favorite_border"
+            android:contentDescription="Love playlist" />
+
+        <!-- Playlist Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/ivPlaylistCover"
+            android:orientation="vertical"
+            android:background="#1A1A1A"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/tvPlaylistName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvPlaylistDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:alpha="0.9"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="#E0E0E0"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvCreator"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tvTrackCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#BDBDBD"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </RelativeLayout>
+</androidx.cardview.widget.CardView> 

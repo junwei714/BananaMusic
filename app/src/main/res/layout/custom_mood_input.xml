@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="16dp"
+    app:cardBackgroundColor="@android:color/transparent"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:background="@drawable/spotify_gradient_background">
+
+        <TextView
+            android:id="@+id/titleTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="How are you feeling?"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="24sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginBottom="24dp"/>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/moodInputLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:hint="Describe your mood"
+            app:boxStrokeColor="@color/white"
+            app:hintTextColor="@color/text_secondary"
+            app:boxCornerRadiusBottomEnd="4dp"
+            app:boxCornerRadiusBottomStart="4dp"
+            app:boxCornerRadiusTopEnd="4dp"
+            app:boxCornerRadiusTopStart="4dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/moodEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:maxLines="2"
+                android:textColor="@color/white"
+                android:background="@color/item_background"
+                android:paddingVertical="12dp"
+                android:textSize="16sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/selectMoodTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Or select a mood:"
+            android:textColor="@color/text_secondary"
+            android:fontFamily="sans-serif"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <Button
+                android:id="@+id/btnHappy"
+                style="@style/SpotifyMoodButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Happy"
+                android:textColor="@color/black"
+                android:drawableLeft="@drawable/ic_mood_happy"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="@color/mood_happy_primary"/>
+
+            <Button
+                android:id="@+id/btnSad"
+                style="@style/SpotifyMoodButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Sad"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/ic_mood_sad"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="@color/mood_sad_primary"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="32dp">
+
+            <Button
+                android:id="@+id/btnEnergetic"
+                style="@style/SpotifyMoodButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Energetic"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/ic_mood_energetic"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="@color/mood_energetic_primary"/>
+
+            <Button
+                android:id="@+id/btnRelaxed"
+                style="@style/SpotifyMoodButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="Relaxed"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/ic_mood_relaxed"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="@color/mood_relaxed_primary"/>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/generateButton"
+            style="@style/SpotifyPrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="Generate Songs"
+            android:textColor="@color/black"
+            android:drawableLeft="@drawable/ic_music_note"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/rounded_spotify_button"/>
+            
+        <TextView
+            android:id="@+id/advancedButton"
+            style="@style/SpotifyTextLink"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Advanced Recommendations" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView> 

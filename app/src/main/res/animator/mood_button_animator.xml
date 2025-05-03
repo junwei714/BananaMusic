@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- When button is pressed down -->
+    <item android:state_pressed="true">
+        <set>
+            <objectAnimator
+                android:duration="150"
+                android:propertyName="scaleX"
+                android:valueTo="0.85"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+            <objectAnimator
+                android:duration="150"
+                android:propertyName="scaleY"
+                android:valueTo="0.85"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+            <objectAnimator
+                android:duration="100"
+                android:propertyName="elevation"
+                android:valueTo="2"
+                android:valueType="floatType" />
+        </set>
+    </item>
+    
+    <!-- When button is selected/active -->
+    <item android:state_selected="true">
+        <set>
+            <objectAnimator
+                android:duration="300"
+                android:propertyName="scaleX"
+                android:valueTo="1.1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/bounce" />
+            <objectAnimator
+                android:duration="300"
+                android:propertyName="scaleY"
+                android:valueTo="1.1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/bounce" />
+            <objectAnimator
+                android:duration="200"
+                android:propertyName="elevation"
+                android:valueTo="12"
+                android:valueType="floatType" />
+            <objectAnimator
+                android:duration="200"
+                android:propertyName="translationZ"
+                android:valueTo="4"
+                android:valueType="floatType" />
+        </set>
+    </item>
+    
+    <!-- Default state (not pressed, not selected) -->
+    <item>
+        <set>
+            <objectAnimator
+                android:duration="200"
+                android:propertyName="scaleX"
+                android:valueTo="1.0"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+            <objectAnimator
+                android:duration="200"
+                android:propertyName="scaleY"
+                android:valueTo="1.0"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+            <objectAnimator
+                android:duration="150"
+                android:propertyName="elevation"
+                android:valueTo="6"
+                android:valueType="floatType" />
+            <objectAnimator
+                android:duration="150"
+                android:propertyName="translationZ"
+                android:valueTo="0"
+                android:valueType="floatType" />
+        </set>
+    </item>
+</selector> 
