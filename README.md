@@ -92,20 +92,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter)
 
-Project Link: [https://github.com/yourusername/BananaMusic](https://github.com/yourusername/BananaMusic)
+Project Link:https://github.com/junwei714/BananaMusic
 
-## Screenshots
-
-[Add screenshots of your app here]
-
-## Roadmap
-
-- [ ] Add offline mode support
-- [ ] Implement audio equalizer
-- [ ] Add crossfade between tracks
-- [ ] Support for podcasts
-- [ ] Integration with more streaming services
-- [ ] Social features and sharing
-- [ ] Custom themes support 
